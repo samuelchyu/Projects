@@ -42,9 +42,22 @@ Performance evaluation of marketing campaign models
 Technologies Used
 
 R (ggplot, tidyverse, rpart, c5.0, naivebayes, random forests)
-Machine Learning (Logistic Regression, Decision Trees, Random Forest)
+Machine Learning (Decision Trees, Random Forest, Naive Bayes Classifier, Random Forest)
+Markdown/LateX
 
 Future Improvements
 Implement deep learning techniques for customer segmentation
 Incorporate external economic and behavioral data
 Develop an interactive web-based campaign performance dashboard
+____________________________________________________________________________________________________________________________
+Experiments using Open AI: (Ongoing)
+
+Overview: 
+
+The final purpose of this project is to make a chatbot initially, and ultimately to implement effective AI agents.
+
+Features:(Ongoing)
+
+Technologies Used:(Ongoing)
+API's
+Python(OpenAI)
