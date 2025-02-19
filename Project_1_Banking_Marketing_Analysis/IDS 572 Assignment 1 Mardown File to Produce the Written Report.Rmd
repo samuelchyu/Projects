@@ -1,0 +1,1625 @@
+---
+title: "IDS Assignment 1"
+author: "Sultan, Samuel"
+date: "2025-02-09"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    extra_dependencies: ["float"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# 1.Data exploration
+
+## 1.(a)
+ -a1 What is the size of the dataset – how many examples, variables? 
+ -a2 Are there any missing values? 
+ -a3 What are the variable types? 
+ -a4 Convert the character variables to categorical (factor)
+ -a5 Obtain summary statistics on the data.
+
+### 1a1 What is the size of the dataset – how many examples, variables? Are there any missing values? 
+```{r,echo = FALSE, warning = FALSE, results = 'hide', message = FALSE}
+#load the tidyverse set of libraries - for data manipulations
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+set.seed(42)
+
+#read the data, and examine summary statistics
+lines <- readLines("bank-full(1).csv")
+lines <- gsub('^"|"$', '', lines)
+data <- read.table(text = paste(lines, collapse = "\n"), sep = ";", header = TRUE)
+```
+
+Based on the summary of the data, there are 45204 rows of data with 17 variables and there are no missing values in the data. 
+
+```{r}
+glimpse(data)
+```
+
+
+### 1a2 Are there any missing values?
+
+There is no missing data.
+
+```{r}
+colSums(is.na(data))
+colnames(data)[colSums(is.na(data))>0]
+```
+
+
+### 1a3 What are the variable types? 
+
+The dataset consists of 17 variables, including 10 character variables and 7 numeric variables. The numeric variables are: "age," "balance," "day," "duration," "campaign," "pdays," and "previous." The character variables include "job," "marital," "education," "default," "housing," "loan," "contact," "month," "poutcome," and the response variable "y."
+
+```{r}
+str(data)
+```
+
+### 1a4 Convert the character variables to categorical (factor)
+```{r}
+df<- data %>% mutate_if(is.character,as.factor)
+```
+
+### 1a5 Obtain summary statistics on the data.
+```{r, echo = FALSE}
+#pretty version of summary(data)
+numeric_columns <- df %>% select_if(is.numeric)
+categoric_columns <- df %>% select_if(~! is.numeric(.))
+
+kable(summary(numeric_columns), caption = "Summary of Numeric Variables") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+kable(summary(categoric_columns[1:5]), caption = "Summary of Categorical Variables (1)") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+kable(summary(categoric_columns[6:10]), caption = "Summary of Categorical Variables (2)") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+The dataset includes various demographic and financial information about clients, as well as their interactions with the business's marketing campaigns. The age of clients ranges from 18 to 95 years, wit hteh average age being about 40.93 years old. The clients' occupations are diverse, spanning categories such as blue-collar (9,731), management (9,458), and technician (7,595). Marital status shows that the majority are married (27,209), followed by single (12,789) and divorced (5,206). Education levels indicate that many clients have secondary (23,197) or tertiary (13,300) education.
+Financial details reveal that most clients do not have a default on their credit (44,389), do not have a personal loan (37,961), but a considerable number have housing loans (25,130). The contact method used in the last campaign is primarily through cellular phones (29,279), with a median contact duration of 180 seconds.The average individual had an average yearly balance of 1362.15 euros.May was the month with the most client contacts. The 20th and 18th of the month were the days of hte month with the most client contacts. The average phone call was 258.11 seconds - 4 minutes and 18 seconds. Most people were not contacted by previous marketing campaigns, and individuals were contacted on average 0.58 times prior to the start of this marketing campaign, though an individual was listed as being contacted 275 times prior to the campaign. The data indicates that there are 1,510 successful previous contacts and a significant number of unknown outcomes (36,955). Overall, 5,284 clients subscribed to the term deposit, while 39,920 did not subscribe.
+
+
+## 1.(b)
+
+- b1 What is the proportion of yes/no cases? 
+- b2 Might this be of concern in developing classification models? 
+- b3 How does the response (y) vary by values of other variables? Conduct some analyses using group_by and summarize; also develop some plots to visualize. Describe what you find and any key insights.
+
+### 1b1 What is the proportion of yes/no cases? 
+
+In our dataset, 88.31% of the cases are labeled as "no," and 11.69% are labeled as "yes." (Table 5)
+
+```{r, echo = FALSE}
+
+kable(table(df$y), caption = "Counts of Response Variable") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), 
+                full_width = FALSE, position = "center")
+kable(prop.table(table(df$y)), caption = "Proportions of Response Variable") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+### 1b2 Might this be of concern in developing classification models? 
+
+This indicates a class imbalance, which can pose significant challenges when developing classification models. Such imbalance can result in bias, improper performance metrics, and a higher risk of false negatives and false positives, along with limited training data for the minority class.
+
+For instance, a naive model that classifies all data as the majority class would achieve about 89% accuracy. However, this model would lack insight into the true patterns and trends within the data. During model training, this bias towards the majority class may persist, causing certain performance metrics to be misleading. Therefore, it is crucial to use metrics such as precision, recall, F1 score, and the area under the precision-recall curve (AUC-PR), which provide a more balanced assessment of the model's performance in the presence of class imbalance.
+
+Additionally, the small number of minority cases can lead to a biased model. With insufficient examples representing the minority class, it becomes challenging for the model to generalize its findings to the broader population. As a result, the model may not accurately identify or predict the minority class in real-world scenarios. Moreover, the model might overemphasize peculiarities in the sample due to the lack of substantial evidence and data for the positive cases, leading to incorrect conclusions and a skewed understanding of the minority class. While we have 5000 positive cases, reducing the extent of this issue, the danger of bias is still present.
+
+## 1b3 How does the response (y) vary by values of other variables? Conduct some analyses using group_by and summarize; also develop some plots to visualize. Describe what you find and any key insights.
+
+## Summary of Findings  
+
+After analyzing the relationships between the response variable and other factors, the findings are summarized below with plots and tables to follow.   
+
+- **Job Type:** As shown in Figure 1 and Table 6, subscription rates vary by job type. Students and retired individuals are significantly more likely to subscribe, with students being 17% more likely and retirees 11% more likely than average. In contrast, blue-collar workers are 4.4% less likely to subscribe.  
+
+- **Credit Default and Home or Personal Loans:** Figure 1 and Table 7 indicate that individuals with credit defaults are less likely to subscribe. Figures 2 and Tables 8-10 show that individuals with housing or personal loans are also less likely to subscribe. However, those without home loans are more likely to subscribe, while individuals without personal loans have a subscription rate similar to the general population.  
+
+- **Contact Method & Frequency:** Figure 3 reveals that individuals who responded via cell phone or telephone had a higher subscription rate compared to those recorded as "unknown." This may be due to a correlation between call duration and willingness to engage. Additionally, Table 11 shows that individuals who had previously participated in marketing campaigns were more likely to subscribe again.  
+
+- **Timing of Contact:** Figure 4 indicates that contacts made on the 1st, 10th, 22nd, and 30th of the month had a higher-than-average subscription rate. Subscription likelihood also varied by month, with March, September, October, and December showing higher rates, while May had the lowest.  
+
+- **Financial Balance & Subscription Rates:** A plot of yearly balances and responses shows that individuals with lower balances are more likely to subscribe.  
+
+- **Call Duration & Repeat Contacts:** Figure 7 suggests that longer call durations are linked to higher subscription rates. Subscribers tend to be contacted fewer times than non-subscribers, though this could be due to survivor bias—once someone subscribes, they are no longer contacted, while non-subscribers continue receiving calls.  
+
+- **Time Since Last Contact:** Figure 8 initially suggests no clear pattern between subscription likelihood and the time since a person was last contacted. However, excluding individuals never contacted before reveals that shorter intervals between contacts increase the likelihood of subscription.  
+
+- **Number of Prior Contacts:** Figure 9 shows no major differences in subscription likelihood based on prior contacts. However, removing outliers reveals that subscribers tend to have had more previous contacts than non-subscribers, with the third quartile (Q3) of prior contacts being higher for subscribers.  
+
+A horizontal reference line has been added to some plots for easier comparison of response rates across categories. Additionally, some charts have been combined for brevity.  
+
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center', fig.cap= "Graphs of the Proportion of Responses Across Job Type and If Individuals had Defaulted Credit", fig.pos='H'}
+plot2 <- ggplot(df, aes(x = job, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Proportion of 'y' by Job Type") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1) + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+plot5 <- ggplot(df, aes(x = default, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Defaulted Credit") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+grid.arrange(plot2, plot5, ncol = 2)
+```
+
+```{r, echo = FALSE}
+positive_response_by_job <- df %>%
+  group_by(job) %>%
+  summarize(positive_rate = mean(y == "yes"),
+            difference_from_avg = positive_rate - 0.1168923,
+            positive_counts = sum(y=="yes"))
+```
+
+```{r, echo = FALSE}
+kable(positive_response_by_job, caption = "Proportion and Count of Positive Responses by Job Type") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r, echo = FALSE}
+positive_response_by_default <- df %>%
+  group_by(default) %>%
+  summarize(positive_rate = mean(y == "yes"),
+            difference_from_avg = positive_rate - 0.1168923,
+            positive_counts = sum(y=="yes"))
+```
+
+```{r, echo = FALSE}
+kable(positive_response_by_default, caption = "Proportion and Count of Positive Responses Based on If Credit is in Default") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center', fig.cap= "Graphs of the Proportion of Responses Across Posession of Housing Loan and Personal Loan", fig.pos='H'}
+plot6 <- ggplot(df, aes(x = housing, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Housing Loan") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+plot7 <- ggplot(df, aes(x = loan, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "by Personal Loan") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+grid.arrange(plot6, plot7, ncol = 2)
+```
+
+```{r, echo = FALSE}
+positive_response_by_housing <- df %>%
+  group_by(housing) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r, echo = FALSE}
+kable(positive_response_by_housing, caption = "Positive Responses by Posession of Home Loan") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r, echo = FALSE}
+positive_response_by_loan <- df %>%
+  group_by(loan) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r, echo = FALSE}
+kable(positive_response_by_loan, caption = "Positive Responses by Posession of Personal Loan") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r, echo = FALSE}
+positive_response_by_housing_loan <- df %>%
+  group_by(housing, loan) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r, echo = FALSE}
+kable(positive_response_by_housing_loan, caption = "Positive Responses by Posession either Housing and Personal Loan") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center', fig.cap= "Graphs of the Proportion of Responses Across Communication Type and Outcome of Previous Marketing Campaign", fig.pos='H'}
+plot8 <- ggplot(df, aes(x = contact, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Type of Communication") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+plot9 <- ggplot(df, aes(x = poutcome, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Outcome of Previous Marketing Campaign") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+grid.arrange(plot8, plot9, ncol = 2)
+```
+
+```{r, echo = FALSE}
+positive_response_by_poutcome <- df %>%
+  group_by(poutcome) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r, echo = FALSE}
+kable(positive_response_by_poutcome, caption = "Positive Responses by Prevous Marketing Outcome") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center' , fig.cap= "Graph of the Proportion of Responses Across Contact Time (Day of the Month)", fig.pos='H'}
+
+dfmod <- df %>% mutate(day = as.factor(df$day))
+plot10 <- ggplot(df, aes(x = day, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Proportion of 'y' by Contact Day") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+plot10
+```
+
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center' , fig.cap= "Graph of the Proportion of Responses Across Contact Time (Month)", fig.pos='H'}
+dfmod <- df
+dfmod$month <- factor(toupper(dfmod$month), 
+                   levels = c("JAN", "FEB", "MAR", "APR", "MAY", "JUN", 
+                              "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"))
+plot11 <- ggplot(dfmod, aes(x = month, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Proportion of 'y' by Contact Month") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+plot11
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center', fig.cap= "Distribution of Client Yearly Balance (Euros) With Respect to the Response Variable", fig.pos='H'}
+plot13 <- ggplot(df, aes(x = y, y = balance)) + 
+  geom_boxplot() + 
+  labs(title = "Distribution of Balance by Response")
+plot13
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center', fig.cap= "Distribution of Call Duration With Respect to the Response Variable", fig.pos='H'}
+plot14 <- ggplot(df, aes(x = y, y = duration)) + 
+  geom_boxplot() + 
+  labs(title = "Distribution of Call Duration by Response")
+plot14
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center', fig.cap= "Distribution of the Number of Contacts by the Marketing Campaign With Respect to the Response Variable", fig.pos='H'}
+plot15 <- ggplot(df, aes(x = y, y = campaign)) + 
+  geom_boxplot() + 
+  labs(title = "Distribution of Number of Contacts by Response")
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center' , fig.cap= "Distribution of Time Since Individuals were contacted Previously With Respect to the Response Variable - Comparison of the Overall Data with the Condition of Having Been Contacted Previously", fig.pos='H'}
+plot16 <- ggplot(df, aes(x = y, y = pdays)) + 
+  geom_boxplot() + 
+  labs(title = "Time Since Last Campaign by Response")
+dfmod <- df %>% filter(pdays > -1)
+plot17 <- ggplot(dfmod, aes(x = y, y = pdays)) + 
+  geom_boxplot() + 
+  labs(title = "(& If Contacted Previously)")
+grid.arrange(plot16, plot17, ncol = 2)
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center' , fig.cap= "Distribution of Number of Contacts Prior to the Marketing Campaign Per Individual - With and Without Drastic Outlier", fig.pos='H'}
+plot18 <- ggplot(df, aes(x = y, y = previous)) + 
+  geom_boxplot() + 
+  labs(title = "Number of Prior Contacts")
+dfmod <- df %>% filter(previous <100)
+plot19 <- ggplot(dfmod, aes(x = y, y = previous)) + 
+  geom_boxplot() + 
+  labs(title = "(& Without Outlier)")
+grid.arrange(plot18, plot19, ncol = 2)
+```
+
+## 1.(c)
+- 1c1 Probe the data to get a deeper understanding: How does response vary by age? Consider some age groups? (For each of these, describe your findings and any insights.)
+- 1c2 Look into duration and number of calls with clients – what do you observe? Examine how duration and number of calls with clients relates to their response to the marketing campaign. For each of these, describe your findings and any insights.
+
+### 1c1 Probe the data to get a deeper understanding: How does response vary by age? Consider some age groups? (For each of these, describe your findings and any insights.)
+
+Responses were less likely than average amounts those from individuals between 30 and 60 years old, while individuals outside of this range were much more likely to subscribe. However, from the table, we can also see that the ages from 30 to 60 were also some of the biggest bins in the dataset. The only large age range that was also more than average to subscribe were those who were between 25 and 30.  
+
+
+```{r, echo = FALSE}
+dfmod <- df %>%
+  mutate(age_bin = cut(age, breaks = seq(0, 100, by = 5), right = FALSE, include.lowest = TRUE))
+positive_response_by_age_bin <- dfmod %>%
+  group_by(age_bin) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r, echo = FALSE}
+kable(positive_response_by_age_bin, caption = "Positive Responses by Five Year Age Range") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center' , fig.cap = "Proportion of Positive Responses by 5 Year Age Bin", fig.pos='H'}
+plot_age_bin <- ggplot(positive_response_by_age_bin, aes(x = age_bin, y = positive_rate)) + 
+  geom_bar(stat = "identity", fill = "steelblue") + 
+  labs(title = "Proportion of Positive Responses by Five Year Age Bin", x = "Age Bin", y = "Positive Response Rate") + 
+  scale_y_continuous(labels = scales::percent) + 
+  theme_minimal() +
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+plot_age_bin
+```
+
+
+### 1c2 Look into duration and number of calls with clients – what do you observe? Examine how duration and number of calls with clients relates to their response to the marketing campaign. For each of these, describe your findings and any insights.
+
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center' , fig.cap= "Call Duration vs. Number of Contacts", fig.pos='H'}
+plot_duration_vs_campaign <- ggplot(df, aes(x = campaign, y = duration)) + 
+  geom_point(alpha = 0.5) + 
+  labs(title = "Call Duration vs. Number of Contacts", x = "Number of Contacts", y = "Call Duration (seconds)") + 
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+plot_duration_vs_campaign
+```
+
+From the scatter plot of call duration and the number of calls per client, we observe an inverse relationship. Clients with very short calls were contacted many times, while individuals who were contacted less frequently generally had longer calls. This can be explained by the fact that longer calls likely indicated a higher likelihood of subscribing, which would stop the marketing campaign from making further calls. Conversely, in instances where the marketing team was unable to reach the individual, they tried repeatedly, resulting in an increased number of calls to that individual. This is further confirmed by Figure 12 showing that positive contacts were more associated with longer calls, whereas numerous calls were associated with negative contacts—potentially due to the marketing team never being able to reach the individual.
+
+```{r, echo = FALSE, fig.height=3.5 , fig.align='center' , fig.cap = "Call Duration vs. Number of Contacts, Colorcoded by Response", fig.pos='H'}
+plot_duration_vs_campaign <- ggplot(df, aes(x = campaign, y = duration, color = y)) + 
+  geom_point(alpha = 0.5) + 
+  labs(title = "Call Duration vs. Number of Contacts", x = "Number of Contacts", y = "Call Duration (seconds)") + 
+  scale_color_manual(values = c("no" = "red", "yes" = "green")) +  # Add custom colors for 'yes' and 'no' responses
+  theme_minimal()
+plot_duration_vs_campaign
+```
+
+
+
+# 2 Building Decison Tree Models 
+
+- 2.1 Here, we want to examine how client characteristics can help predict response – so, only include the client variables for developing modes to predict response. Which variables do you include in the model?
+- 2.2 Split the data into training and test sets
+
+## 2.1 Here, we want to examine how client characteristics can help predict response – so, only include the client variables for developing modes to predict response. Which variables do you include in the model?
+```{r}
+library (dplyr)
+df <- df %>% select(-c('contact', 'day', 'month', 'duration', 'campaign', 'pdays', 'previous', 'poutcome'))
+```
+The selected variables were ommitted since they are related to the campaign. The goal of the study is to predict the response of custoers using customer related attributes such as age, marital, balance, housing loan,etc...
+
+## 2.2 Splitting the data into training and test sets:
+
+Proportion of data used for training = 70%
+
+```{r}
+nr=nrow(df)
+trnIndex = sample(1:nr, size = round(0.7*nr), replace=FALSE)
+dfTrn=df[trnIndex,]   
+dfTst = df[-trnIndex,]
+```
+
+## 2(a) Decision trees using the rpart package
+- 2(a)(i)1  Parameters: Do you find the prior parameter useful? 
+- 2(a)(i)2 Determine the optimal cp value to obtain a best pruned tree. Describe how you go about doing this. 
+- 2(a)(ii) Variable importance: Which variables are important in the decisions by the tree model – discuss the variable importance. 
+- 2(a)(iii) Evaluate the performance of the model on training and test data? What do you conclude regarding overfit?
+- 2(a)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and
+why? What classification threshold do you use and why? What do you conclude ?
+- 2(a)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from
+the ROC analyses, to get best accuracy?
+- 2(a)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+
+### 2(a)(i)1 Parameters: Do you find the prior parameter useful? 
+
+The basic model without parameters did not train, it only generated one node. When the prior parameter was added, the skewness in the data was corrected, balancing classes "yes and "no". In conclusion the prior parameter is useful. 
+
+```{r}
+library(rpart)
+set.seed(42)
+#Basic Model (no parameters)
+rpDT1 <- rpart(y ~., data=dfTrn, method="class")
+print(rpDT1)
+#Model with prior parameter
+rpDT2 = rpart(y ~ ., data=dfTrn, method="class", parms=list(prior=c(.5,.5)))
+print(rpDT2)
+```
+
+### 2(a)(i)1 Determine the optimal cp value to obtain a best pruned tree. Describe how you go about doing this. 
+```{r, echo = FALSE}
+# 1. use cp=0 to get start, which means no pruning and gets the complete tree
+rpDT2 = rpart(y ~ ., data=dfTrn, method="class", control = rpart.control(cp = 0.0), parms=list(prior=c(.5,.5)))
+mincp_i <- which.min(rpDT2$cptable[, 'xerror'])  
+optError <- rpDT2$cptable[mincp_i, "xerror"] + rpDT2$cptable[mincp_i, "xstd"]
+optCP_i <- which.min(abs( rpDT2$cptable[,"xerror"] - optError))
+optCP <- rpDT2$cptable[optCP_i, "CP"]
+print(paste("Optimal CP;",optCP))
+rpDT2_p <- prune(rpDT2, cp = optCP)
+```
+Optimal cp value = 0.000211950819111096 it was obtained by first constricting a tree model with cp = 0, then using the cptable we obtain the row index of the min cross validation error (xerror), and then we find the optimal error threshold, then using the optimal error threshold we retun to the cptable to find the xerror value closest to optimal threshold, once we find the best xerror value, we find the cp value associated with it 
+
+## 2(a)(ii) Variable importance: Which variables are important in the decisions by the tree model – discuss the variable importance.  
+
+```{r, echo = FALSE}
+importance <- rpDT2_p$variable.importance
+
+kable(importance, caption = "Variable Importance of RPart") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE)
+
+```
+
+Based on the results above, balance, age, and job played a significant role since they have the highest scores. Also, housing, education and marital status were moderatly significant. Loan status and defaulted credit were the two with the least significance.
+
+
+## 2(a)(iii) Evaluate the performance of the model on training and test data? What do you conclude regarding overfit?
+
+While evaluation of the performance of the models on training and test data will be further elaborated in later sections, it it can be concluded that the model is not overfit as it performs poorly both in training and test data. While this is a characteristic of overfit models, overfitting models implies that the model performs working too well on the training data and terribly on the test data. The AUC of the two models is also fairly similar so we can conclude that the model is not overfit. 
+
+### 2(a)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+
+To evaluate the performance of the model, the following measure are taken into account. Precision estimates how many predicted outcomes as "yes" are actually "yes". Recall measures how many positive outcomes "yes" were identified in the model. the f1 score is a measure of both precision and recall, evaluating the model's performance in classifying outcomes as positive ("yes"). Specificity measures the percentage of predicted negatives "no" were correctly identified relative to actual data. 
+
+The model achieves an accuracy of 0.767 on the training data, but due to class imbalance, this metric alone does not indicate strong performance. The confusion matrix shows that while the model correctly classifies a large number of negative cases, it struggles to identify positive instances, with only 2909 correctly identified positives out of 3599. The precision of the model on the training data is approximately 0.303 = (2909 / (2909 + 6592)), suggesting that when it predicts the positive class, it is correct in a substantial proportion of cases. However, the recall is low at 0.807 = (2909 / (2909 + 690)), indicating that the model misses a significant number of actual positives. The F1 score reflects this trade-off between precision and recall. A high specificity suggests that the model is effective at identifying negative cases, with a relatively low false positive rate.
+
+On the test data, the model achieves an accuracy of 0.714, but this metric can be misleading due to class imbalance. The confusion matrix indicates that while the model correctly classifies most negative instances, it struggles to correctly identify positive cases, correctly classifying only 892 positives out of 4067. The precision on the test data is approximately 0.219 =  (892 / (892 + 3175)), suggesting that when the model predicts the positive class, it is correct in a fair number of cases. However, the recall remains low at 0.18 = (892 / (892 + 7020)), meaning a large proportion of actual positives are misclassified as negatives. The F1 score highlights this imbalance between precision and recall. The specificity remains high, demonstrating that the model effectively classifies negative instances, while the false positive rate suggests relatively few negative cases are misclassified as positive.
+
+The classification threshold used was 0.5 because it is the default.
+
+```{r, echo=FALSE}
+### Performance on Training Data
+#Obtain the model's predictions on the training data
+predTrnrpDT2_p=predict(rpDT2_p, dfTrn, type='class')
+#Confusion Matrix
+predtestrpDT2_p = predict(rpDT2_p, dfTst, type='class')
+#Confusion Matrix
+kable(table(pred = predTrnrpDT2_p, true=dfTrn$y), caption = "Confusion Matrix of Rpart Model on Training Data") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+
+#Accuracy
+print(paste("Accuracy of RPart on Train Data:", mean(predTrnrpDT2_p==dfTrn$y)))
+
+### Performance on Test Data
+predtestrpDT2_p = predict(rpDT2_p, dfTst, type='class')
+#Confusion Matrix
+kable(table(predtestrpDT2_p, true=dfTst$y), caption = "Confusion Matrix of Rpart Model on Test Data") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#Accuracy
+print(paste("Accuracy of RPart on Test Data:",mean(dfTst$y==predtestrpDT2_p)))
+```
+
+
+
+### 2(a)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from the ROC analyses, to get best accuracy?
+
+Based on the ROC Curves, we can see that the test performs worse than the train. This is understandable because the model has not seen the test data. The AUC for the test data is 0.6623878 and the AUC for the train data is 0.827269 Initially, the classification threshold was set at 0.5, in other words, it indicates that the probability of assigning a "yes" or "no" is equal, depending in decision parameters. But finding the maximizing threshold for accuracy, we can find that the best threshold from the performance output is 0.8964539 the train data, and 1 for the test data.
+
+```{r, echo = FALSE, fig.height = 3.5,  fig.cap= "ROC Curve for Train and Test Data - RPart", fig.pos = "H"}
+library('ROCR')
+set.seed(42)
+#Train Data
+score_rpDT2Trn=predict(rpDT2_p, dfTrn, type="prob")[,'yes']  
+rocPred_rpDT2Trn= prediction(score_rpDT2Trn, dfTrn$y, label.ordering = c('no', 'yes'))  
+perfROC_rpDT2Trn=performance(rocPred_rpDT2Trn, "tpr", "fpr")
+
+#Test Data
+score_rpDT2Tst=predict(rpDT2_p, dfTst, type="prob")[,'yes']  
+rocPred_rpDT2Tst = prediction(score_rpDT2Tst, dfTst$y, label.ordering = c('no', 'yes'))  
+perfROC_rpDT2Tst = performance(rocPred_rpDT2Tst, "tpr", "fpr")
+roc_rpDT2_df <- data.frame(
+  fpr = c(unlist(perfROC_rpDT2Trn@x.values), unlist(perfROC_rpDT2Tst@x.values)),
+  tpr = c(unlist(perfROC_rpDT2Trn@y.values), unlist(perfROC_rpDT2Tst@y.values)),
+  dataset = rep(c("Train", "Test"), c(length(perfROC_rpDT2Trn@x.values[[1]]),
+                                      length(perfROC_rpDT2Tst@x.values[[1]])))
+)
+ggplot(roc_rpDT2_df, aes(x = fpr, y = tpr, color = dataset)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  labs(title = "ROC Curve for Train and Test Data", x = "False Positive Rate", y = "True Positive Rate") +
+  scale_color_manual(values = c("Train" = "blue", "Test" = "red")) +
+  theme_minimal()
+```
+```{r, echo = FALSE}
+#AUC value for Train Data
+aucPerf=performance(rocPred_rpDT2Trn, "auc")
+print(paste("AUC for Train Data", aucPerf@y.values))
+#AUC value for Test Data
+aucPerf=performance(rocPred_rpDT2Tst, "auc")
+print(paste("AUC for Test Data", aucPerf@y.values))
+
+
+#optimal threshold for max overall accuracy for Test Data
+accPerf=performance(rocPred_rpDT2Tst, "acc")
+print(paste("Optimal threshold for max overall accuracy for Test Data", accPerf@x.values[[1]][which.max(accPerf@y.values[[1]])]))
+
+#optimal threshold for max overall accuracy for Train Data
+accPerf=performance(rocPred_rpDT2Trn, "acc")
+print(paste("Optimal threshold for max overall accuracy for Train Data", accPerf@x.values[[1]][which.max(accPerf@y.values[[1]])]))
+```
+
+### 2(a)(iii) 3 develop lift tables to evaluate performance. What conclusions do you make?
+
+Both lift tables indicate poor performance. The training data lift table (Table 16) descends gradually which is a positive. However, the separation of the bins is poor, indicating that the model isn't able to well-differentiate the positive and negative responses. Also, the lift value drops as the model identifies more positive predictions, the lift value gets closer to 1, to the point it assigns predictions at random. However, in Table 17, based on the fact that the lifts do not gradually descend but varies quite a bit past the fourth bin, we must conclude that this model does not perform well. 
+
+```{r, echo = FALSE}
+#Train Model
+predTrnProb=predict(rpDT2_p, dfTrn, type='prob')
+trnSc <- dfTrn %>%  select("y")
+trnSc$score<-predTrnProb[, 2]
+trnSc<-trnSc[order(trnSc$score, decreasing=TRUE),]
+trnSc$cumResponse<-cumsum(trnSc$y == "yes")
+trnSc["bucket"]<- ntile(-trnSc[,"score"], 10)  
+dLifts <- trnSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count, 
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(trnSc$y=="yes")/nrow(trnSc)) )
+kable(dLifts, caption = "Lift Table of RPart Train Data") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r, echo = FALSE}
+#Test Model
+predTstProb=predict(rpDT2_p, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+dLiftsrp <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count, 
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+kable(dLiftsrp, caption = "Lift Table of RPart Test Data") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+```
+
+
+## 2(b) Develop C50 decision tree and rules. 
+ - 2(b)(i)1 Parameters: Do you find the costs parameter useful? Describe how you use this. 
+ - 2(b)(i)2 How many nodes are there in the tree? How many rules? Is this what you expected? 
+ - 2(b)(ii) Variable importance: Which variables are important in the decisions by the tree model and the rules model – discuss the variable importance. 
+ - 2(b)(iii) Evaluate performance of the tree model and rules model on training and test data? What are your conclusions?
+ 
+   For performance assessment of models:
+  - 2(b)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and
+  why? What classification threshold do you use and why? What do you conclude ?
+  - 2(b)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from
+  the ROC analyses, to get best accuracy?
+  - 2(b)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+### 2(b)(i)1 Parameters: Do you find the costs parameter useful? Describe how you use this. 
+
+The cost parameter was useful. The initial C5.0 model had only one node, likely due to the imbalanced data. However, after applying a cost matrix, the model generated a tree with 614 nodes, showing that it was able to train effectively. This confirms that the cost parameter is useful.
+
+The cost matrix penalizes the model for misclassification. A cost value of 10 was assigned to false negatives, meaning that misclassifying an actual "yes" as a "no" was made significantly more costly. By increasing the penalty for false negatives, the model became more sensitive to correctly identifying positive cases, improving its ability to capture the minority class.
+
+
+```{r}
+# Developing Basic C50 Decision Tree Model
+library(C50)
+set.seed(42)
+#Basic Model
+c5DT1 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10))
+print(c5DT1)
+
+#Constructing Cost Matrix 
+costMatrix <- matrix(c(
+    0,   1,
+    10,  0),
+   2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+#C50 Decision Tree with Cost Parameter
+c5DT2 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+print(c5DT2)
+```
+
+### 2(b)(i)2 How many nodes are there in the tree? How many rules? Is this what you expected? 
+
+The tree based model with cost complexity matrix has 614 nodes (as evidenced prior). The rules model with cost complexity matrix has 87 rules. These counts are to be expected. Using a cost complexity matrix allowed the c5.0 model to grow deeper than the default. On the other hand, the rule-based model is developed by finding overall rules from the developed tree, thereby reducing the number of total splitting points into some consolidated number - explaining why we see 87 rules which is much less than 614.
+
+```{r, echo = FALSE}
+#Generating C50 Rules based model 
+c5_rules <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), rules=TRUE, costs=costMatrix)
+print(c5_rules)
+```
+
+### 2(b)(ii) Variable importance: Which variables are important in the decisions by the tree model and the rules model – discuss the variable importance. 
+
+Based on the results: age, housing, job and balance were important in making decisions and had higher scores ranging from 90-100. while marital, education and loan were slightly important with importance values ranging from 72 to 69 However, the default variable had a lower importance with a value of 36.
+Age and housing appeared to be less important, and education is significantly more important with the rules based Model. 
+
+```{r, echo = FALSE}
+#C50 Decision Tree
+kable(C5imp(c5DT2), caption = "Variable Importance for the Tree Model") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+#Rules Based Tree
+kable(C5imp(c5_rules), caption = "Variable Importance for Rule Based Model") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+```
+
+### 2(b)(iii) Evaluate performance of the tree model and rules model on training and test data? What are your conclusions?
+
+While the steps for performance evaluation will be completed in more detail below, we found that the model performed fairly well, having a good lift table, implying that the c5.0 model was able to separate a good amount of the minority class with standardized bins, potentially being a good model for the given context. It was also found that the model improved the most when false positive and negative costs reflected the proportion of the response class in the overall population. This can be understood as a normalization to approach equal class weights - in a sense attempting to undo the effect of class imbalances through weights. 
+
+### 2(b)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+
+We look at accuracy, precision, recall, and F1 to evaluate different aspects of model performance. Accuracy gives an overall success rate, precision measures how many positive predictions are correct, recall shows how well the model captures actual positives, and F1 balances precision and recall, offering a more comprehensive performance metric, especially when dealing with imbalanced data.
+
+The confusion matrix for the tree-based model on training data (Table 20) shows 15,689 true negatives and 3,346 true positives, resulting in an accuracy of 60.16%. The model has a low precision, indicating that a large number of predicted "Yes" cases are actually false positives, while a relatively high recall suggests that the model successfully identifies most actual "Yes" cases. However, the high false positive rate implies that many "No" instances are misclassified as "Yes," which may require threshold adjustment to improve precision.
+
+On the test data (Table 21), the confusion matrix shows 6,445 true negatives, 453 false negatives, 5,522 false positives, and 1,141 true positives, with an accuracy of 55.94%. While the model maintains a reasonable recall, the precision remains low, meaning it still misclassifies a significant number of "No" cases as "Yes." The drop in accuracy from training to test data suggests overfitting, indicating that the model may generalize poorly.
+
+For the rules-based model on training data, the confusion matrix shows 12,574 true negatives and 3,286 true positives, resulting in an accuracy of 50.12%. The model has a very low precision, highlighting its tendency to overpredict the positive class, leading to a high number of false positives. While recall is relatively high, the poor balance between precision and recall results in a low F1 score, suggesting that the model is biased toward predicting "Yes" without strong discrimination between classes.
+
+On the test data, the confusion matrix shows 5,211 true negatives, 340 false negatives, 6,756 false positives, and 1,254 true positives, with an accuracy of 47.67%. The model continues to suffer from low precision, meaning that many predicted "Yes" cases are incorrect. Although recall is moderate, the low F1 score confirms the model’s weak overall performance. 
+
+Overall, the rule-based C50 model had lower accuracy on both the training and test sets. This can be expected because rule-based trees don’t use the decision tree directly but create rules from it, which reduces accuracy by abandoning the decision tree’s predictive capabilities. Furthermore, because the accuracy is better on the training data, versus the test data the model may be overfit to the training data. 
+
+A threshold of 0.5 was used to create the confusion matrices as it is the default, as the predict function does not allow confidence outputs while using a cost matrix.
+
+While normally, the optimal threshold would be determined using model confidence, the predict function doesn't allow us to use class probabilities and a model using cost-matrix at the same time. Furthermore, there is no clean way to find the best cost matrix for the given data. So instead of finding an optimal threshold we hope an exploration into finding improvements of accuracy through changes in the cost complexity matrix. The original c5.0 model considered a matrix that weighed false negatives as 10 and false positives as 1. This is a reasonable approach to a minority class as we want to catch as many of the few true positives as possible. However, starting from that base line, as it was found that as we approximate the population proportion of the minority and majority class through the cost matrix, our accuracy improved in a non-trivial way until we were left with an accuracy of 0.6521643 (Table 28). This is substantially better than our original starting model. For curiosity's sake, a model was trained where the large and smaller values were replaced and we find that even though the accuracy is better, the resulting confusion matrix shows an uninsightful model as every entry is predicted as a negative. 
+
+
+```{r, echo = FALSE}
+#Performance Testing Tree and Rule Models on Train and Test Data
+
+#Tree Based Model
+## on Training Data
+predTrnc50t <- predict(c5DT2, dfTrn,type = "class")
+#Confusion Matrix
+kable(table( pred = predTrnc50t, true=dfTrn$y), caption = "Confusion Matrix of Tree Based Model on Training Data") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#Accuracy
+print(paste("Accuracy of Tree Model on Training Data:",mean(predTrnc50t==dfTrn$y)))
+
+#Tree Based Model
+## on Test Data set
+predTstc50t <- predict(c5DT2, dfTst,type = "class")
+#Confusion Matrix
+kable(table( pred = predTstc50t, true=dfTst$y), caption = "Confusion Matrix of Tree Based Model on Test Data") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#Accuracy
+print(paste("Accuracy of Tree Model on Test Data:",mean(predTstc50t==dfTst$y)))
+
+
+#Rules Based Model
+## On training Data
+predTrnc50r <- predict(c5_rules, dfTrn,type = "class")
+#Confusion Matrix
+kable(table(pred = predTrnc50r, true=dfTrn$y), caption = "Confusion Matrix of Rules Based Model on Training Data") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#Accuracy
+print(paste("Accuracy of Tree Model on Training Data:",mean(predTrnc50r==dfTrn$y)))
+
+#Rules Based Model
+## On Test Data
+predTstc50r <- predict(c5_rules, dfTst,type = "class")
+
+#Confusion Matrix
+kable(table(pred = predTstc50r, true=dfTst$y), caption = "Confusion Matrix of Rules Based Model on Test Data") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#Accuracy
+print(paste("Accuracy of Tree Model on Test Data:",mean(predTstc50r==dfTst$y)))
+
+```
+
+```{r, echo = FALSE}
+#Testing Different Cost Matrixes
+# test cost matrix 2
+costMatrix <- matrix(c(
+  0,   1,
+  9,  0),
+  2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+kable(costMatrix, caption = "Cost Matrix Using Slightly Modified Weights") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+c5DT22 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+predTstc50t2 <- predict(c5DT22, dfTst,type = "class")
+
+kable(table( pred = predTstc50t2, true=dfTst$y), caption = "Confusion Matrix of C5.0 on Training Data - Cost Matrix using Slightly Modified Weights") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+
+print(paste("Accuracy of c5.0 Tree Model Using Slightly Modified Cost Weights:",mean(predTstc50t2==dfTst$y)))
+
+
+#Testing Different Cost Matrices
+# test cost matrix 3
+costMatrix <- matrix(c(
+  0,   11,
+  88,  0),
+  2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+kable(costMatrix, caption = "Cost Matrix Using Light Population weights") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+c5DT23 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+predTstc50t3 <- predict(c5DT23, dfTst,type = "class")
+
+kable(table( pred = predTstc50t3, true=dfTst$y), caption = "Confusion Matrix of C5.0 on Training Data - Cost Matrix using Light Population Weights") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+
+print(paste("Accuracy of c5.0 Tree Model Using light Population Distribution Cost Weights:",mean(predTstc50t3==dfTst$y)))
+
+#Testing Different Cost Matrixes
+#test model 4
+costMatrix <- matrix(c(
+  0,   1168923,
+  8831077,  0),
+  2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+kable(costMatrix, caption = "Cost Matrix Using Population weights") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+c5DT24 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+predTstc50t4 <- predict(c5DT24, dfTst,type = "class")
+
+kable(table( pred = predTstc50t4, true=dfTst$y), caption = "Confusion Matrix of C5.0 on Training Data - Cost Matrix using Population Weights") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+
+print(paste("Accuracy of c5.0 Tree Model Using Population Distribution Cost Weights:",mean(predTstc50t4==dfTst$y)))
+
+```
+
+
+
+### 2(b)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from the ROC analyses, to get best accuracy?
+
+The test AUC for the tree-based model is 0.6271868 while the rules-based model, achieves a slightly lower AUC of 0.6110738 Similar to the accuracies, the tree based model performs better as it has a higher AUC. Comparing this to the training data for assignment's sake, we can see waht is expected - the auc of the models on train data ROC is much higher than that of test data, and the train model outperforms the rule-based model.
+Similar to before, due to the inclusion of a cost matrix in the model building, we cannot obtain confidence measures for to find ROC accuracies and analysis.
+
+The process to find the optimal threshold returned inf. We believe that this can be from the incompatibility of predict + probabilities and c5.0 cost matrices. However, under the assumption that the value is meaningful, it might imply that the most accurate model considering the c5.0 model type is the naive model.
+
+
+```{r, echo = FALSE}
+scoreTrn_c50t <- predict(c5DT2, dfTrn, type="class")
+scoreTrn_Rules <- predict(c5_rules, dfTrn, type="class")
+
+scoreTrn_n_c50t <- as.numeric(scoreTrn_c50t)
+scoreTrn_n_Rules <- as.numeric(scoreTrn_Rules)
+
+rocPredTrn_c50t  = prediction(scoreTrn_n_c50t, dfTrn$y, label.ordering = c('no','yes'))
+rocPredTrn_Rules = prediction(scoreTrn_n_Rules, dfTrn$y, label.ordering = c('no','yes'))
+
+perfROCTrn_c50t <- performance(rocPredTrn_c50t, "tpr", "fpr")
+perfROCTrn_Rules <- performance(rocPredTrn_Rules, "tpr", "fpr")
+
+
+auc_c50t <- performance(rocPredTrn_c50t, "auc")@y.values[[1]]
+auc_Rules <- performance(rocPredTrn_Rules, "auc")@y.values[[1]]
+
+#AUC for Tree Model With Train Data
+print(paste("AUC for Rule Model With Train Data:",auc_c50t))
+
+#AUC for Rule Model With Train Data
+print(paste("AUC for Rule Model With Train Data:",auc_Rules))
+```
+
+```{r, echo = FALSE, fig.height = 3.5,  fig.cap= "Train ROC Curve Comparison Using Train Data", fig.pos= "H"}
+rocData_DT <- data.frame(fpr = unlist(perfROCTrn_c50t@x.values), 
+                         tpr = unlist(perfROCTrn_c50t@y.values), 
+                         model = "Decision Tree")
+rocData_Rules <- data.frame(fpr = unlist(perfROCTrn_Rules@x.values), 
+                            tpr = unlist(perfROCTrn_Rules@y.values), 
+                            model = "Rules-Based")
+
+rocData <- rbind(rocData_DT, rocData_Rules)
+# Plot both ROC curves on the same plot
+ggplot(rocData, aes(x = fpr, y = tpr, color = model)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  ggtitle("Train ROC Curve Comparison: Tree vs Rules-Based") +
+  xlab("False Positive Rate (FPR)") + 
+  ylab("True Positive Rate (TPR)") +
+  theme_minimal() +
+  scale_color_manual(values = c("blue", "red"))
+```
+
+```{r, echo = FALSE}
+library(ROCR)
+
+scoreTst_c50t <- predict(c5DT2, dfTst, type="class")
+scoreTst_Rules <- predict(c5_rules, dfTst, type="class")
+
+scoreTst_n_c50t <- as.numeric(scoreTst_c50t)
+scoreTst_n_Rules <- as.numeric(scoreTst_Rules)
+
+rocPredTst_c50t  = prediction(scoreTst_n_c50t, dfTst$y, label.ordering = c('no','yes'))
+rocPredTst_Rules = prediction(scoreTst_n_Rules, dfTst$y, label.ordering = c('no','yes'))
+
+perfROCTst_c50t <- performance(rocPredTst_c50t, "tpr", "fpr")
+perfROCTst_Rules <- performance(rocPredTst_Rules, "tpr", "fpr")
+
+auc_c50tPerf <- performance(rocPredTst_c50t, "auc")
+auc_RulesPerf <- performance(rocPredTst_Rules, "auc")
+
+#AUC for Tree Model With Test Data
+print(paste("AUC for Rule Model With Test Data:",auc_c50tPerf@y.values))
+
+#AUC for Rule Model With Test Data
+print(paste("AUC for Rule Model With Test Data:",auc_RulesPerf@y.values))
+```
+
+```{r,echo = FALSE,fig.height = 3.5,  fig.cap= "Test ROC Curve Comparison", fig.pos="!h"}
+rocData_c50t <- data.frame(fpr = unlist(perfROCTst_c50t@x.values), 
+                         tpr = unlist(perfROCTst_c50t@y.values), 
+                         model = "Decision Tree")
+rocData_Rules <- data.frame(fpr = unlist(perfROCTst_Rules@x.values), 
+                            tpr = unlist(perfROCTst_Rules@y.values), 
+                            model = "Rules-Based")
+rocData <- rbind(rocData_c50t, rocData_Rules)
+
+# Plot both ROC curves on the same plot
+ggplot(rocData, aes(x = fpr, y = tpr, color = model)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  ggtitle("Test ROC Curve Comparison: Tree vs Rules-Based") +
+  xlab("False Positive Rate (FPR)") + 
+  ylab("True Positive Rate (TPR)") +
+  theme_minimal() +
+  scale_color_manual(values = c("blue", "red"))
+```
+
+
+```{r, echo = FALSE}
+#Threshold optimizing for tree model on test data
+accPerfrocPredTst_c50t=performance(rocPredTst_c50t, "acc")
+print(paste("Threshold optimizing for tree model on test data:", accPerfrocPredTst_c50t@x.values[[1]][which.max(accPerfrocPredTst_c50t@y.values[[1]])]))
+
+#Threshold optimizing for rules model on test data
+accPerfrocPredTst_Rules=performance(rocPredTst_Rules, "acc")
+print(paste("Threshold optimizing for rules model on test data:", accPerfrocPredTst_Rules@x.values[[1]][which.max(accPerfrocPredTst_Rules@y.values[[1]])]))
+
+#Threshold optimizing for tree model on train data
+accPerfrocPredTrn_c50t=performance(rocPredTrn_c50t, "acc")
+print(paste("Threshold optimizing for tree model on train data:", accPerfrocPredTrn_c50t@x.values[[1]][which.max(accPerfrocPredTrn_c50t@y.values[[1]])]))
+
+#Threshold optimizing for rules model on train data
+accPerfrocPredTrn_Rules=performance(rocPredTrn_Rules, "acc")
+print(paste("Threshold optimizing for rules model on train data:", accPerfrocPredTrn_Rules@x.values[[1]][which.max(accPerfrocPredTrn_Rules@y.values[[1]])]))
+
+```
+
+
+## 2(b)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+Due to the inability for predict to give probabilities when cost-matrices are used, surrogate models that don't use cost matrices were used for lift analysis. However, we recognize that not using cost-matrices restricts us to instances to the model with only one node. Without being able to produce confidences, we can't order the responses by confidence, thereby hampering the basic setup of the decile lift table.
+From the lift tables, we can see that the models perform fairly well and behave fairly well. Both the trees model and rule based model start at a relatively high lift (around 4) and gradually decrease without rising again. This decrease is also well-behaved as the lifts sharply decrease from the top bins and peter off as the bins progress.
+
+```{r, echo = FALSE}
+#Tree Model
+c5DT_noCost <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10))
+
+predTstProb=predict(c5DT_noCost, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLiftsc50t <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)))
+dLiftsc50t$numResponse <- rev(dLiftsc50t$numResponse)
+dLiftsc50t$lift <- rev(dLiftsc50t$lift)
+dLiftsc50t$cumRespRate <- rev(dLiftsc50t$cumRespRate)
+dLiftsc50t$respRate <- rev(dLiftsc50t$respRate)
+
+#look at the table
+kable(dLiftsc50t, caption = "Lift Table of Trees-Based Model") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+```
+
+
+```{r, echo = FALSE}
+#Rules Model
+c5Rules_noCost <- C5.0(y ~ ., data=dfTst, rules = TRUE ,control=C5.0Control(minCases=10))
+
+predTstProb=predict(c5Rules_noCost, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLiftsc5rules <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count, 
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)))
+
+dLiftsc5rules$numResponse <- rev(dLiftsc5rules$numResponse)
+dLiftsc5rules$lift <- rev(dLiftsc5rules$lift)
+dLiftsc5rules$cumRespRate <- rev(dLiftsc5rules$cumRespRate)
+dLiftsc5rules$respRate <- rev(dLiftsc5rules$respRate)
+
+#look at the table
+kable(dLiftsc5rules, caption = "Lift Table of Rules-Based Model") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+```
+
+
+
+## 2(c) Develop random forest model. 
+  - 2(c)(i) Parameters: Experiment with the m and number of trees parameters, Do you find performance to vary? What parameters do you use to get your best model ? Explain how do you determine which model is best. 
+  - 2(c)(ii) Variable importance: Which variables are important in the decisions - discuss the variable importance.
+  - 2(c)(iii) Evaluate performance of the random forest model on training and test data? What do you conclude?
+    For performance assessment of models:
+  - 2(c)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+  - 2(c)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from  the ROC analyses, to get best accuracy?
+  - 2(c)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+  
+### 2(c)(i)1 Parameters: Experiment with the m and number of trees parameters, Do you find performance to vary? What parameters do you use to get your best model ? Explain how do you determine which model is best. 
+
+I found the best model by trying different combinations of the number of trees and m. The number of trees varied between 100, 200,500, and 1000 and the values of m tried were from the square root of the dimensionality to the number of dimensions minus one so that no tree would be a complete tree. Across the different models made in this brute-force way, the performance did vary, though not by much. All the tested accuracies were within 0.87 to 0.89. The resulting best model had 1000 trees with each tree having 3 parameters with an accuracy of 0.883987
+
+```{r, echo = FALSE}
+library(randomForest)
+set.seed(576)
+#results <- data.frame(ntree = integer(), mtry = integer(), accuracy = numeric())
+# Grid search over ntree and mtry
+#for (nt in c(100, 200, 500, 1000)) {
+#  for (mt in c(1, sqrt(ncol(dfTrn)), ncol(dfTrn)-1)) {
+#    rfModel <- randomForest(y ~ ., data=dfTrn, ntree=nt, mtry=mt, importance=TRUE)
+#    accuracy <- mean(rfModel$predicted == dfTrn$y)
+#    results <- rbind(results, data.frame(ntree = nt, mtry = mt, accuracy = accuracy))
+#  }
+#}
+#Results of systematic Random Forest Parameter Tuning
+#kable(results, caption = "Results of Systematic Parameter Exploration") %>%
+#  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+#                full_width = FALSE, position = "center")
+# Choose the model with the highest accuracy
+#bestModel <- results[which.max(results$accuracy),]
+#print(bestModel)
+```
+
+### 2(c)(ii) Variable importance: Which variables are important in the decisions - discuss the variable importance.
+
+From the variable importance plot and table, we can see that the balance, age, and job variables were the top three contributors to a decrease of Gini. On the other hand, default and loan are minimal contributors to the truth insight. Despite their reduced significance, it is important to note that none of the variables are negative, indicating that all of the variables are significant to some degree. This matches what was found in the previous sections, as age and balance were major features in those sections also. 
+
+```{r, echo = FALSE, fig.cap= "Variable Importance Plot", fig.pos= "H"}
+
+rfModel <- randomForest(y ~ ., data=dfTrn, ntree=1000, mtry=3, importance=TRUE)
+varImpPlot(rfModel)
+```
+
+```{r, echo = FALSE}
+kable(importance(rfModel), caption = "Variable Importance for Random Forest Model") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+### 2(c)(iii) Evaluate performance of the random forest model on training and test data? What do you conclude?
+
+Overall, the model was found to be a very accurate model, one of the highest test accuracies, being in the upper 80's. However, this is at the cost of a higher likelihood of classifying the minority class as the majority class. This can serve as a problem in the business context because the goal is to identify the minority class.
+
+### 2(c)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+
+The model had a train accuracy of 0.90. On the other hand the model shows a high recall for the "yes" class, correctly identifying almost all actual "yes" cases, but its precision is quite low. This means that when it predicts "yes," it is often incorrect. For example, the precision for the "yes" class is 20.67%, while the recall is 98.58%, indicating a strong ability to identify positive cases but also a tendency to misclassify "no" cases as "yes." There are many false positives, but only a few false negatives.
+
+When applied to the test data, the model's accuracy decreases slightly to 88.42%. The precision and recall for the "yes" class drop further, with precision at 6.35% and recall at 5.96%. This suggests that the model is more likely to predict "no," leading to poor performance in identifying "yes" instances. The drop in performance from the training data to the test data hints at overfitting. Adjusting the classification threshold or applying techniques like class balancing could help improve these metrics.
+
+Accuracy, Precision, and Recall were chosen for evaluation because considering the scarce minority class, we need to be concerned with false positives, and false negatives.
+
+A threshold of 0.5 was used as it was the threshold that maximized test accuracy. While thresholds lower than 0.5 were tested and showed improvements to the train accuracy, the test accuracy kept decreasing, indicating overfit. (Table 36 - Table 38 and accompanying Accuracies) sOverall, we conclude that the model performs better than the naive case, but only slightly, and misses a large amount of the actual "yes" responses.
+
+```{r, echo = FALSE}
+#Classification performance
+CTHRESH = 0.5
+
+#For training data
+rfPredTrn<-predict(rfModel,dfTrn, type="prob")
+predTrnrfPred = ifelse(rfPredTrn[, 'yes'] >= CTHRESH, 'yes', 'no')
+kable(table( pred = predTrnrfPred, true=dfTrn$y), caption = "Confusion Matrix of RF on Training Data - Using threshold of 0.5") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#accuracy
+print(paste("Accuracy of RF Model on Training Data using threshold of 0.5:", mean(predTrnrfPred==dfTrn$y)))
+
+
+#For test data
+rfPredTst<-predict(rfModel,dfTst, type="prob")
+predTstrfPred = ifelse(rfPredTst[, 'yes'] >= CTHRESH, 'yes', 'no')
+
+#confusion matrix
+kable(table( pred = predTstrfPred, true=dfTst$y), caption = "Confusion Matrix of RF on Test Data- Using threshold of 0.5") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#accuracy
+print(paste("Accuracy of RF Model on Test Data using threshold of 0.5:", mean(predTstrfPred==dfTst$y)))
+
+```
+
+```{r, echo=FALSE}
+CTHRESH = 0.2
+
+#For training data
+rfPred<-predict(rfModel,dfTrn, type="prob")
+pred = ifelse(rfPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+
+kable(table( pred = pred, true=dfTrn$y), caption = "Confusion Matrix of RF on Training Data - Using threshold of 0.2") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#accuracy
+print(paste("Accuracy of RF Model on Training Data using threshold of 0.2:", mean(pred==dfTrn$y)))
+
+#For test data
+rfPred<-predict(rfModel,dfTst, type="prob")
+pred = ifelse(rfPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+
+#confusion matrix
+kable(table( pred = pred, true=dfTst$y), caption = "Confusion Matrix of RF on Test Data- Using threshold of 0.2") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#accuracy
+print(paste("Accuracy of RF Model on Test Data using threshold of 0.2:", mean(pred==dfTst$y)))
+
+```
+
+
+```{r, echo = FALSE}
+CTHRESH = 0.1
+
+#For training data
+rfPred<-predict(rfModel,dfTrn, type="prob")
+pred = ifelse(rfPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+kable(table( pred = pred, true=dfTrn$y), caption = "Confusion Matrix of RF on Training Data - Using threshold of 0.1") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#accuracy
+print(paste("Accuracy of RF Model on Training Data using threshold of 0.1:", mean(pred==dfTrn$y)))
+
+#For test data
+rfPred<-predict(rfModel,dfTst, type="prob")
+pred = ifelse(rfPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+#confusion matrix
+kable(table( pred = pred, true=dfTst$y), caption = "Confusion Matrix of RF on Test Data- Using threshold of 0.1") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+#accuracy
+print(paste("Accuracy of RF Model on Test Data using threshold of 0.1:", mean(pred==dfTst$y)))
+```
+
+### 2(c)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from  the ROC analyses, to get best accuracy?
+
+The AUC for the RF Model on the test data was 0.69, whereas it was 0.98 for the training model. The optimal threshold from the ROC analysis is 0.514 for the model on the test data, and 0.19 for the model on the training data. 
+
+```{r, echo = FALSE,fig.height = 3.5,  fig.cap="ROC Curve for Random Forest Model (Training & Test Data)", fig.pos = "H"}
+
+perf_rfTst <- performance(prediction(predict(rfModel, dfTst, type="prob")[, 2], dfTst$y), "tpr", "fpr")
+
+# Calculate the performance for training data
+perf_rfTrn <- performance(prediction(predict(rfModel, dfTrn, type="prob")[, 2], dfTrn$y), "tpr", "fpr")
+
+# Create a data frame for ggplot from test data
+roc_data_tst <- data.frame(
+  FPR = unlist(perf_rfTst@x.values),
+  TPR = unlist(perf_rfTst@y.values),
+  Data = "Test Data"
+)
+
+# Create a data frame for ggplot from training data
+roc_data_trn <- data.frame(
+  FPR = unlist(perf_rfTrn@x.values),
+  TPR = unlist(perf_rfTrn@y.values),
+  Data = "Training Data"
+)
+
+# Combine the data for both training and test data
+roc_data <- rbind(roc_data_tst, roc_data_trn)
+
+# Plot ROC curve for both training and test data using ggplot
+ggplot(roc_data, aes(x = FPR, y = TPR, color = Data)) +
+  geom_line() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  labs(
+    title = "ROC Curve for Random Forest Model (Training & Test Data)",
+    x = "False Positive Rate",
+    y = "True Positive Rate"
+  ) +
+  scale_color_manual(values = c("blue", "green")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+```
+
+```{r, echo = FALSE}
+#AUC's
+#Test AUC
+print(paste("Test AUC:", performance(prediction(predict(rfModel,dfTst, type="prob")[,2], dfTst$y), "auc")@y.values[[1]]))
+
+#Train AUC
+print(paste("Train AUC:", performance(prediction(predict(rfModel,dfTrn, type="prob")[,2], dfTrn$y), "auc")@y.values[[1]]))
+```
+
+```{r, echo = FALSE}
+rfPredProbTst <- predict(rfModel, dfTst, type = "prob")[, "yes"]  # Extract probabilities for the "yes" class
+accPerfrocPredTst_rfModel <- performance(prediction(rfPredProbTst, dfTst$y), "acc")
+optimal_threshold_Tst <- accPerfrocPredTst_rfModel@x.values[[1]][which.max(accPerfrocPredTst_rfModel@y.values[[1]])]
+
+# Threshold optimizing for rfModel model on training data
+rfPredProbTrn <- predict(rfModel, dfTrn, type = "prob")[, "yes"]  # Extract probabilities for the "yes" class
+accPerfrocPredTrn_rfModel <- performance(prediction(rfPredProbTrn, dfTrn$y), "acc")
+optimal_threshold_Trn <- accPerfrocPredTrn_rfModel@x.values[[1]][which.max(accPerfrocPredTrn_rfModel@y.values[[1]])]
+
+# Print optimal thresholds
+print(paste("Optimal Threshold for Test Data:", optimal_threshold_Tst))
+print(paste("Optimal Threshold for Training Data:", optimal_threshold_Trn))
+```
+
+
+### 2(c)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+The lift table on test data reveals that the model performs best in the top decile (Bucket 1), with a high lift of 3.22, meaning it effectively predicts positive cases ("yes"). The respRate in this bucket is 0.37, significantly higher than the overall positive response rate. As we move down the buckets, the model's ability to predict positive responses decreases, with lift approaching 1 in the last bucket, showing it becomes less effective. The first few buckets capture most of the positive responses, suggesting the model is good at identifying the most likely positives but could benefit from better distinguishing across lower likelihood predictions. It looks like one of the better models of the models thus far. The lift table for the training data looks much better than that of test data as expected, and displays a strong ability to classify the examples as almost all of the positive responses are in the first 3 bins.
+
+```{r,echo = FALSE}
+predTstProb=predict(rfModel, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLiftsrf <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,  
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+#look at the table
+
+kable(dLiftsrf, caption = "Lift Table of Random Forest with Test Data") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+```{r,echo = FALSE}
+predTstProb=predict(rfModel, dfTrn, type='prob')
+tstSc <- dfTrn %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the train data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLifts <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,  
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+#look at the table
+
+kable(dLifts, caption = "Lift Table of Random Forest with Train Data") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+
+## 2(d) Develop naïve Bayes model. 
+  - 2(d)(i)1 Parameters: look at the continuous variables in the data – do you think kernel density estimation should be used? 
+  - 2(d)(i)2 Does use of kernel density estimation help improve performance?
+  - 2(d)(iii) What is the performance of the naïve-Bayes model on training and test data?
+     For performance assessment of models:
+  - 2(d)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+  - 2(d)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from  the ROC analyses, to get best accuracy?
+  - 2(d)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+### 2(d)(i)1 Parameters: look at the continuous variables in the data – do you think kernel density estimation should be used? 
+
+From the histograms of Age and Balance, I think that kernel density estimation should be used. While age is fairly smooth, it is certainly not normal and possess some spikes due to binning - this gives a mild justification for KDE. Looking at the graph of balance, it is also not normal/gaussian looking as it is extremely right skewed. This can justify using the kernel density estimation. 
+
+```{r, echo = FALSE,fig.height = 3.0,  fig.cap= "Histogram of Age", fig.pos= "H"}
+ggplot(dfTrn, aes(x = age)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Age", x = "Age", y = "Frequency") +
+  theme_minimal()
+```
+
+```{r, echo = FALSE,fig.height = 3.0,  fig.cap= "Histogram of Balance", fig.pos= "H"}
+ggplot(dfTrn, aes(x = balance)) +
+  geom_histogram(binwidth = 100, fill = "lightgreen", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Balance", x = "Balance", y = "Frequency") +
+  theme_minimal()
+```
+
+
+\pagebreak
+ 
+### 2(d)(i)2 Does use of kernel density estimation help improve performance?
+
+Yes, using the kernel density estimation helped improve performance. The test accuracy of the model using kernel density estimation(0.876336553351523") is higher than the basic model (0.872207064375784). While the improvement is marginal, using the kernel density estimation does improve the performance.
+
+```{r}
+library(naivebayes)
+#Training basic model
+nbM1<-naive_bayes(y ~ ., data = dfTrn) 
+nbM1PredTst = predict(nbM1, dfTst, type='prob')
+THRESH=0.5
+conf_matrix1 <- table(pred=nbM1PredTst[, 2] > THRESH, actual=dfTst$y)
+accuracy <- sum(diag(conf_matrix1)) / sum(conf_matrix1)
+print(paste("Accuracy without Kernel Density:", accuracy))
+
+#Training model with kernel density estimation
+nbM2<-naive_bayes(y ~ ., data = dfTrn, usekernel = T) 
+nbM2PredTst = predict(nbM2, dfTst, type='prob')
+conf_matrix2 <- table(pred=nbM2PredTst[, 2] > THRESH, actual=dfTst$y)
+accuracy <- sum(diag(conf_matrix2)) / sum(conf_matrix2)
+print(paste("Accuracy with Kernel Density:", accuracy))
+```
+
+### 2(d)(iii) + 2(d)(iii)1 What is the performance of the naïve-Bayes model on training and test data? show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+
+We look at accuracy, precision, recall, and F1 to evaluate different aspects of model performance. Accuracy gives an overall success rate, precision measures how many positive predictions are correct, recall shows how well the model captures actual positives, and F1 balances precision and recall, offering a more comprehensive performance metric, especially when dealing with imbalanced data.
+
+For the training dataset, the Naïve Bayes model achieved an accuracy of 80.51%, correctly classifying 24,073 instances as 'no' and 1,402 instances as 'yes'. However, it misclassified 3,880 'no' instances as 'yes' and 2,288 'yes' instances as 'no'. The model's performance on the positive class was weak, with a precision of 26.54%, indicating that only about a quarter of the predicted positive cases were correct. Its recall was 38.01%, showing that it captured only around 38% of the actual positive cases. The F1 score, which balances precision and recall, was 31.16%, indicating a difficulty handling the minority class.
+
+For the test dataset, the model's performance was similar, with an accuracy of 80.84%, correctly predicting 10,337 'no' instances and 626 'yes' instances. The model's precision remained low at 27.74%, meaning that less than one-third of the positive predictions were correct. Its recall dropped slightly to 39.29%, indicating that it identified fewer positive cases compared to the training set. The F1 score for the test set was 32.49%, again highlighting the model's limitations in detecting positive instances despite relatively high accuracy.
+
+The F1 score was used to find the best threshold because it provides a balanced measure of a model's performance by considering both precision and recall. Unlike accuracy, misleading in imbalanced datasets, the F1 score emphasizes the trade-off between precision and recall. By optimizing the threshold to maximize the F1 score, we ensure that the model performs well in predicting the positive class while balancing the risk of false positives and false negatives. This is in opposition to the accuracy, which could easily recommend the un-informative threshold of 0. The ending optima threshold found was 0.2.
+
+From the findings, we can say that the naive bayes model performs fairly well on determining the data. It however does not outperform the naive model - though this is hard in the presence of the extreme class imbalance. 
+
+```{r,echo = FALSE}
+#bruteforce approach to finding the best threshold
+nbM2tstPred<-predict(nbM2,dfTst, type="prob")
+CTHRESH_seq <- seq(0, 1, by = 0.01)  # Thresholds from 0 to 1
+f1_scores <- c()
+for (thresh in CTHRESH_seq) {
+  pred <- ifelse(nbM2tstPred[, 'yes'] >= thresh, 'yes', 'no')
+  cm <- table(factor(pred, levels = c("no", "yes")), factor(dfTst$y, levels = c("no", "yes")))
+  TP <- cm["yes", "yes"]
+  FP <- cm["yes", "no"]
+  FN <- cm["no", "yes"]
+  precision <- ifelse(TP + FP == 0, 0, TP / (TP + FP))  # Avoid division by zero
+  recall <- ifelse(TP + FN == 0, 0, TP / (TP + FN))  # Avoid division by zero
+  f1 <- ifelse(precision + recall == 0, 0, 2 * (precision * recall) / (precision + recall))  # Compute F1-score
+  f1_scores <- c(f1_scores, f1)
+}
+best_thresh <- CTHRESH_seq[which.max(f1_scores)]  # Get threshold with max F1-score
+best_thresh
+```
+
+```{r,echo = FALSE}
+CTHRESH = 0.2
+
+#For training data
+nbM2trnPred<-predict(nbM2,dfTrn, type="prob")
+pred = ifelse(nbM2trnPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+kable(table( pred = pred, true=dfTrn$y), caption = "Confusion Matrix of NB on Train Data") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+
+print(paste("Accuracy of Confusion Matrix of NB on Training Data:", mean(pred==dfTrn$y)))
+
+
+#For test data
+nbM2tstPred<-predict(nbM2,dfTst, type="prob")
+pred = ifelse(nbM2tstPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+
+kable(table( pred = pred, true=dfTst$y), caption = "Confusion Matrix of NB on Test Data") %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) %>%
+  add_header_above(c("Pred|" = 1, " ", "True " = 1))
+
+print(paste("Accuracy of Confusion Matrix of NB on Test Data:", mean(pred==dfTst$y)))
+```
+
+
+### 2(d)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from  the ROC analyses, to get best accuracy?
+
+The optimal threshold from the ROC analysis is 0.8367121 using the test data, and 0.7856521 using the train data. AUC of the model on the test data is 0.684 and the AUC of the model on train data is 0.688. This implies that the model is not overfit, as we would see a much greater difference if so. 
+
+```{r, echo = FALSE,fig.height = 3.5,  fig.cap= "ROC Curve for Naive Bayes Model (Training & Test Data)", fig.pos= "H"}
+perf_nbTst <- performance(prediction(predict(nbM2, dfTst, type="prob")[, 2], dfTst$y), "tpr", "fpr")
+
+# Calculate the performance for training data
+perf_nbTrn <- performance(prediction(predict(nbM2, dfTrn, type="prob")[, 2], dfTrn$y), "tpr", "fpr")
+
+# Create a data frame for ggplot from test data
+roc_data_tst <- data.frame(
+  FPR = unlist(perf_nbTst@x.values),
+  TPR = unlist(perf_nbTst@y.values),
+  Data = "Test Data"
+)
+
+# Create a data frame for ggplot from training data
+roc_data_trn <- data.frame(
+  FPR = unlist(perf_nbTrn@x.values),
+  TPR = unlist(perf_nbTrn@y.values),
+  Data = "Training Data"
+)
+# Combine the data for both training and test data
+roc_datanb <- rbind(roc_data_tst, roc_data_trn)
+# Plot ROC curve for both training and test data using ggplot
+ggplot(roc_datanb, aes(x = FPR, y = TPR, color = Data)) +
+  geom_line() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  labs(
+    title = "ROC Curve for Naive Bayes Model (Training & Test Data)",
+    x = "False Positive Rate",
+    y = "True Positive Rate"
+  ) +
+  scale_color_manual(values = c("blue", "green")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+```
+
+```{r, echo = FALSE}
+#AUC's
+#Test AUC
+print(paste("Test AUC:",performance(prediction(predict(nbM2,dfTst, type="prob")[,2], dfTst$y), "auc")@y.values[[1]]))
+
+#Train AUC
+print(paste("Train AUC:", performance(prediction(predict(nbM2,dfTrn, type="prob")[,2], dfTrn$y), "auc")@y.values[[1]]))
+
+```
+
+```{r, echo = FALSE}
+#optimal threshold for max overall accuracy
+accPerf <-performance(prediction(predict(nbM2,dfTst, type="prob")[,2], dfTst$y), "acc")
+print(paste("Optimal Threshold for Test Data:", accPerf@x.values[[1]][which.max(accPerf@y.values[[1]])]))
+
+
+#optimal threshold for max overall accuracy
+accPerf <-performance(prediction(predict(nbM2,dfTrn, type="prob")[,2], dfTrn$y), "acc")
+print(paste("Optimal Threshold for Training Data:", accPerf@x.values[[1]][which.max(accPerf@y.values[[1]])]))
+
+```
+
+
+### 2(d)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+Based on the lift table from the test data, we can say that while the initial separation of responses is not bad, the naive bayes model did not perform as well as the random forest model. However, the naive bayes model does show signs of a good model, as the lifts start high, decrease relatively sharply, and slowly peter off until the end. These conclusions are reflected in the lift table from the lift data. However, it is of note that the lfit of the table using test data is worse than that of the train data. This is expected as the model is expected to perform slightly worse on the unseen data. 
+
+```{r, echo = FALSE}
+predTstProb=predict(nbM2, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLiftsnb <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,  
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+#look at the table
+
+kable(dLiftsnb, caption = "Lift Table of Naive Bayes Model with Test Data") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+predTstProb=predict(nbM2, dfTrn, type='prob')
+tstSc <- dfTrn %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLifts <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,  
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+#look at the table
+
+kable(dLifts, caption = "Lift Table of Naive Bayes with Train Data") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+
+## 2(e) Compare performance of the different models you have developed.
+ - 2(e)(i) Show a table with comparative performance. Explain which performance measure you use for this and why.
+ - 2(e)(ii) Plot the ROC curves in a single plot and compare. What do you conclude? 
+ - 2(e)(iii) Cumulative lifts can be useful in assessing how a model will perform when implemented to target customers. Discuss how lifts are useful in this context. Compare models on their lift-based performance. Which model would you choose to implement and why. 
+ - 2(e)(iv) compare variable importance in the rpart, c50, random forest and "naive bayes" models. Discuss similarities, differences.
+ 
+### 2(e)(i) Show a table with comparative performance. Explain which performance measure you use for this and why. 
+ 
+Looking at the overall accuracies, we can see that the random forest and naive beyes models perform generally better. However, they have some of the lowest F1 Score among the models. This implies that the higher classification rate comes at the cost of failing to classify the minority classes. Given the business application where we desire to target the minority class, we can thus see that among the models with higher F1 score, the rpart model has the highest test accuracy. This means that the rpart model brings the most accurate results while prioritizing the minority class.
+
+Accuracies were used to compare the models because of its general ability to show models' ability to make correct classifications. However, it is also important to inspect F1 scores as it indicates the model's ability to consider the minority class. This is very important in this situation due to the class imbalance. 
+
+```{r, echo=FALSE}
+set.seed(42)
+# Load necessary library
+library(caret)
+
+# Initialize an empty data frame to store results
+model_results <- data.frame(Model = character(), Accuracy = numeric(), F1_Score = numeric(), stringsAsFactors = FALSE)
+
+# Function to compute accuracy and F1-score
+compute_metrics <- function(model, dfTst, model_name) {
+  pred <- predict(model, dfTst, type = "class")  # Use class-based predictions for all models
+  
+  # Compute accuracy
+  accuracy <- mean(pred == dfTst$y)
+  
+  # Compute F1-score
+  conf_matrix <- table(Predicted = pred, Actual = dfTst$y)
+  precision <- conf_matrix["yes", "yes"] / sum(conf_matrix["yes", ])
+  recall <- conf_matrix["yes", "yes"] / sum(conf_matrix[, "yes"])
+  f1_score <- 2 * (precision * recall) / (precision + recall)
+  
+  # Handle cases where precision or recall might be NaN due to division by zero
+  if (is.na(f1_score)) f1_score <- 0
+  
+  return(data.frame(Model = model_name, Accuracy = accuracy, F1_Score = f1_score))
+}
+
+# Compute metrics for each model
+model_results <- rbind(model_results, compute_metrics(rpDT2, dfTst, "rpDT2"))
+model_results <- rbind(model_results, compute_metrics(c5DT2, dfTst, "c5DT2"))
+model_results <- rbind(model_results, compute_metrics(c5_rules, dfTst, "c5_rules"))
+model_results <- rbind(model_results, compute_metrics(rfModel, dfTst, "rfModel"))
+model_results <- rbind(model_results, compute_metrics(nbM2, dfTst, "nbM2"))
+
+kable(model_results, caption = "Accuracy and F1 Score Across Models") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+```
+
+### 2(e)(ii) Plot the ROC curves in a single plot and compare. What do you conclude? 
+
+From the ROC Curves, we can see that the random forest model takes a quick lead as the plots progress, as it is model that reaches the highest up in the initial thresholds. However, as the threshold progresses, the models eventually meet up and follow a similar trajectory and the random forest model meets wit hthe rest of the models later. It is notable that the c50 methods of decision tree and rule based model have notably smaller AUC, indicating that they are less able to classify the data overall. 
+
+```{r, echo = FALSE,fig.height = 3.5,  fig.cap="ROC Curve Comparison Across Models", fig.pos = "H"}
+
+rocData_rf <- data.frame(fpr = unlist(perf_rfTst@x.values), 
+                         tpr = unlist(perf_rfTst@y.values), 
+                         model = "Random Forest")
+
+rocData_nb <- data.frame(fpr = unlist(perf_nbTst@x.values), 
+                         tpr = unlist(perf_nbTst@y.values), 
+                         model = "Naive Bayes")
+
+rocData_rpDT2 <- data.frame(fpr = unlist(perfROC_rpDT2Tst@x.values), 
+                            tpr = unlist(perfROC_rpDT2Tst@y.values), 
+                            model = "Decision Tree (rpart)")
+rocData_c50t <- data.frame(fpr = unlist(perfROCTst_c50t@x.values), 
+                         tpr = unlist(perfROCTst_c50t@y.values), 
+                         model = "Decision Tree")
+rocData_Rules <- data.frame(fpr = unlist(perfROCTst_Rules@x.values), 
+                            tpr = unlist(perfROCTst_Rules@y.values), 
+                            model = "Rules-Based")
+rocData_all <- rbind(rocData_rf, rocData_nb, rocData_rpDT2, rocData_c50t, rocData_Rules)
+
+ggplot(rocData_all, aes(x = fpr, y = tpr, color = model)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  ggtitle("ROC Curve Comparison Across Models") +
+  xlab("False Positive Rate (FPR)") + 
+  ylab("True Positive Rate (TPR)") +
+  theme_minimal() +
+  scale_color_manual(values = c("blue", "red", "green", "purple", "orange"))  
+
+```
+
+\pagebreak
+### 2(e)(iii) Cumulative lifts can be useful in assessing how a model will perform when implemented to target customers. Discuss how lifts are useful in this context. Compare models on their lift-based performance. Which model would you choose to implement and why. 
+
+Using a lift value, we naturally identify a model's ability to classify high-value individuals and classify them in a smaller and smaller space. In the situation where contacting customers takes time and money, the lift table identifies a model's ability to highlight targets within a certain bin range. So, in addressing the business problem from the context, we desire models with high lifts in the first few bins, and comparatively smaller lifts in the remaining bins. 
+
+Looking at the curated lift table, the lift values follow the same general trend of starting high, indicating a confident and well performing first bin. However, all the models experience a drop in ability to classify as the bins progress. The most notable difference is in the first bin, where the c5.0 models (the tree model and the rules based model) experience the greatest lift of the set. This indicates that they classify the positive cases the best.  However, across the later bins, the random forest model generally has a higher lift. Given the nature of the business problem, where we want to target the individuals that are most likely to respond to marketing, I would implement either of the c5.0 models, as they have very similar lifts, while having the most potent effect on the first bin. 
+
+```{r, echo = FALSE}
+lift_table <- data.frame(
+  Bucket = dLiftsrp$bucket,  # Assuming all have the same bucket structure
+  rpDT2 = dLiftsrp$lift,
+  c5DT2 = dLiftsc50t$lift,
+  c5_rules = dLiftsc5rules$lift,
+  rfModel = dLiftsrf$lift,
+  nbM2 = dLiftsnb$lift
+)
+
+# Print lift comparison table
+kable(lift_table, caption = "Consolidated Lifts Across Models") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+```
+
+
+### 2(e)(iv) compare variable importance in the rpart, c50,and random forest models. Discuss similarities, differences.
+
+Overall the different importance rankings, age and balance are substantially first in many of the models. Job is a solid third in importance amongst the models. Default and Loan are consistantly the least important variables. Marital status and education level are regularly in the middle of the rankings. 
+Despite these similarities there are some differences among the models. In the rule based model, both age and job drop in importance ranking and land in the middle fo the rankings. There are also variations in where the top three land amongst themselves. For example, every model except for the tree-based model, balance is the top ranked feature according to Gini. However, in the tree-based model (Table 48), balance drops to the third important feature. 
+
+```{r, echo = FALSE}
+importance <- rpDT2_p$variable.importance
+kable(importance, caption = "Variable Importance for the RPart Model for Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+costMatrix <- matrix(c(
+  0,   1168923,
+  8831077,  0),
+  2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+c5DT2 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+c5_rules <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), rules=TRUE, costs=costMatrix)
+
+kable(C5imp(c5DT2), caption = "Variable Importance for the C5.0 Model for Comparison") %>% 
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+kable(C5imp(c5_rules), caption = "Variable Importance for Rule Based Model for Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+
+kable(importance(rfModel), caption = "Variable Importance for Random Forest Model for Comparison") %>%
+  kable_styling(bootstrap_options = c("striped", "Condensed"), 
+                full_width = FALSE, position = "center")
+```
+

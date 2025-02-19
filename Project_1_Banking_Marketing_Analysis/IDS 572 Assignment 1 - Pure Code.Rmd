@@ -1,0 +1,1354 @@
+---
+title: "IDS Assignment 1 - Pure Code"
+author: "Sultan, Samuel"
+date: "2025-02-09"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    extra_dependencies: ["float"]
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# 1.Data exploration
+
+## 1.(a)
+ -a1 What is the size of the dataset – how many examples, variables? 
+ -a2 Are there any missing values? 
+ -a3 What are the variable types? 
+ -a4 Convert the character variables to categorical (factor)
+ -a5 Obtain summary statistics on the data.
+
+### 1a1 What is the size of the dataset – how many examples, variables? Are there any missing values? 
+```{r, warning = FALSE, results = 'hide', message = FALSE}
+#load the tidyverse set of libraries - for data manipulations
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(knitr)
+library(kableExtra)
+set.seed(42)
+
+#read the data, and examine summary statistics
+lines <- readLines("bank-full(1).csv")
+lines <- gsub('^"|"$', '', lines)
+data <- read.table(text = paste(lines, collapse = "\n"), sep = ";", header = TRUE)
+```
+
+```{r}
+glimpse(data)
+```
+
+### 1a2 Are there any missing values?
+
+```{r}
+colSums(is.na(data))
+colnames(data)[colSums(is.na(data))>0]
+```
+
+### 1a3 What are the variable types? 
+
+```{r}
+str(data)
+```
+
+### 1a4 Convert the character variables to categorical (factor)
+```{r}
+df<- data %>% mutate_if(is.character,as.factor)
+```
+
+### 1a5 Obtain summary statistics on the data.
+```{r }
+#pretty version of summary(data)
+numeric_columns <- df %>% select_if(is.numeric)
+categoric_columns <- df %>% select_if(~! is.numeric(.))
+
+summary(numeric_columns)#"Summary of Numeric Variables"
+summary(categoric_columns[1:5])#"Summary of Categorical Variables (1)"
+summary(categoric_columns[6:10])#"Summary of Categorical Variables (2)"
+```
+
+## 1.(b)
+
+- b1 What is the proportion of yes/no cases? 
+- b2 Might this be of concern in developing classification models? 
+- b3 How does the response (y) vary by values of other variables? Conduct some analyses using group_by and summarize; also develop some plots to visualize. Describe what you find and any key insights.
+
+### 1b1 What is the proportion of yes/no cases? 
+
+```{r }
+table(df$y)#"Counts of Response Variable"
+prop.table(table(df$y))#"Proportions of Response Variable"
+```
+
+### 1b2 Might this be of concern in developing classification models? 
+
+## 1b3 How does the response (y) vary by values of other variables? Conduct some analyses using group_by and summarize; also develop some plots to visualize. Describe what you find and any key insights.
+
+```{ r, fig.height=3.5 , fig.align='center', fig.cap= "Graphs of the Proportion of Responses Across Job Type and If Individuals had Defaulted Credit", fig.pos='H'}
+plot2 <- ggplot(df, aes(x = job, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Proportion of 'y' by Job Type") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1) + 
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+plot5 <- ggplot(df, aes(x = default, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Defaulted Credit") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+grid.arrange(plot2, plot5, ncol = 2)
+```
+
+```{r}
+positive_response_by_job <- df %>%
+  group_by(job) %>%
+  summarize(positive_rate = mean(y == "yes"),
+            difference_from_avg = positive_rate - 0.1168923,
+            positive_counts = sum(y=="yes"))
+```
+
+```{r }
+positive_response_by_job#"Proportion and Count of Positive Responses by Job Type"
+```
+
+```{r }
+positive_response_by_default <- df %>%
+  group_by(default) %>%
+  summarize(positive_rate = mean(y == "yes"),
+            difference_from_avg = positive_rate - 0.1168923,
+            positive_counts = sum(y=="yes"))
+```
+
+```{r }
+positive_response_by_default#"Proportion and Count of Positive Responses Based on If Credit is in Default"
+```
+
+```{r , fig.height=3.5 , fig.align='center', fig.cap= "Graphs of the Proportion of Responses Across Posession of Housing Loan and Personal Loan", fig.pos='H'}
+plot6 <- ggplot(df, aes(x = housing, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Housing Loan") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+plot7 <- ggplot(df, aes(x = loan, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "by Personal Loan") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+grid.arrange(plot6, plot7, ncol = 2)
+```
+
+```{r }
+positive_response_by_housing <- df %>%
+  group_by(housing) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r }
+positive_response_by_housing#"Positive Responses by Possession of Home Loan"
+```
+
+```{r }
+positive_response_by_loan <- df %>%
+  group_by(loan) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r }
+positive_response_by_loan #"Positive Responses by Posession of Personal Loan"
+```
+
+```{r }
+positive_response_by_housing_loan <- df %>%
+  group_by(housing, loan) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r }
+positive_response_by_housing_loan#"Positive Responses by Posession either Housing and Personal Loan"
+```
+
+```{r , fig.height=3.5 , fig.align='center', fig.cap= "Graphs of the Proportion of Responses Across Communication Type and Outcome of Previous Marketing Campaign", fig.pos='H'}
+plot8 <- ggplot(df, aes(x = contact, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Type of Communication") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+plot9 <- ggplot(df, aes(x = poutcome, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Outcome of Previous Marketing Campaign") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+grid.arrange(plot8, plot9, ncol = 2)
+```
+
+```{r }
+positive_response_by_poutcome <- df %>%
+  group_by(poutcome) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r }
+positive_response_by_poutcome#"Positive Responses by Prevous Marketing Outcome"
+```
+
+```{r , fig.height=3.5 , fig.align='center' , fig.cap= "Graph of the Proportion of Responses Across Contact Time (Day of the Month)", fig.pos='H'}
+
+dfmod <- df %>% mutate(day = as.factor(df$day))
+plot10 <- ggplot(df, aes(x = day, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Proportion of 'y' by Contact Day") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+plot10
+```
+
+
+```{r , fig.height=3.5 , fig.align='center' , fig.cap= "Graph of the Proportion of Responses Across Contact Time (Month)", fig.pos='H'}
+dfmod <- df
+dfmod$month <- factor(toupper(dfmod$month), 
+                   levels = c("JAN", "FEB", "MAR", "APR", "MAY", "JUN", 
+                              "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"))
+plot11 <- ggplot(dfmod, aes(x = month, fill = y)) + 
+  geom_bar(position = "fill") + 
+  labs(y = "Proportion", title = "Proportion of 'y' by Contact Month") + 
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1)
+plot11
+```
+
+```{r , fig.height=3.5 , fig.align='center', fig.cap= "Distribution of Client Yearly Balance (Euros) With Respect to the Response Variable", fig.pos='H'}
+plot13 <- ggplot(df, aes(x = y, y = balance)) + 
+  geom_boxplot() + 
+  labs(title = "Distribution of Balance by Response")
+plot13
+```
+
+```{r , fig.height=3.5 , fig.align='center', fig.cap= "Distribution of Call Duration With Respect to the Response Variable", fig.pos='H'}
+plot14 <- ggplot(df, aes(x = y, y = duration)) + 
+  geom_boxplot() + 
+  labs(title = "Distribution of Call Duration by Response")
+plot14
+```
+
+```{r , fig.height=3.5 , fig.align='center', fig.cap= "Distribution of the Number of Contacts by the Marketing Campaign With Respect to the Response Variable", fig.pos='H'}
+plot15 <- ggplot(df, aes(x = y, y = campaign)) + 
+  geom_boxplot() + 
+  labs(title = "Distribution of Number of Contacts by Response")
+```
+
+```{r , fig.height=3.5 , fig.align='center' , fig.cap= "Distribution of Time Since Individuals were contacted Previously With Respect to the Response Variable - Comparison of the Overall Data with the Condition of Having Been Contacted Previously", fig.pos='H'}
+plot16 <- ggplot(df, aes(x = y, y = pdays)) + 
+  geom_boxplot() + 
+  labs(title = "Time Since Last Campaign by Response")
+dfmod <- df %>% filter(pdays > -1)
+plot17 <- ggplot(dfmod, aes(x = y, y = pdays)) + 
+  geom_boxplot() + 
+  labs(title = "(& If Contacted Previously)")
+grid.arrange(plot16, plot17, ncol = 2)
+```
+
+```{r , fig.height=3.5 , fig.align='center' , fig.cap= "Distribution of Number of Contacts Prior to the Marketing Campaign Per Individual - With and Without Drastic Outlier", fig.pos='H'}
+plot18 <- ggplot(df, aes(x = y, y = previous)) + 
+  geom_boxplot() + 
+  labs(title = "Number of Prior Contacts")
+dfmod <- df %>% filter(previous <100)
+plot19 <- ggplot(dfmod, aes(x = y, y = previous)) + 
+  geom_boxplot() + 
+  labs(title = "(& Without Outlier)")
+grid.arrange(plot18, plot19, ncol = 2)
+```
+
+## 1.(c)
+- 1c1 Probe the data to get a deeper understanding: How does response vary by age? Consider some age groups? (For each of these, describe your findings and any insights.)
+- 1c2 Look into duration and number of calls with clients – what do you observe? Examine how duration and number of calls with clients relates to their response to the marketing campaign. For each of these, describe your findings and any insights.
+
+### 1c1 Probe the data to get a deeper understanding: How does response vary by age? Consider some age groups? (For each of these, describe your findings and any insights.)
+
+```{r }
+dfmod <- df %>%
+  mutate(age_bin = cut(age, breaks = seq(0, 100, by = 5), right = FALSE, include.lowest = TRUE))
+positive_response_by_age_bin <- dfmod %>%
+  group_by(age_bin) %>%
+  summarize(
+    positive_rate = mean(y == "yes"),
+    difference_from_avg = mean(y == "yes") - 0.1168923,
+    positive_counts = sum(y == "yes")
+  )
+```
+
+```{r }
+positive_response_by_age_bin#"Positive Responses by Five Year Age Range"
+```
+
+```{r , fig.height=3.5 , fig.align='center' , fig.cap = "Proportion of Positive Responses by 5 Year Age Bin", fig.pos='H'}
+plot_age_bin <- ggplot(positive_response_by_age_bin, aes(x = age_bin, y = positive_rate)) + 
+  geom_bar(stat = "identity", fill = "steelblue") + 
+  labs(title = "Proportion of Positive Responses by Five Year Age Bin", x = "Age Bin", y = "Positive Response Rate") + 
+  scale_y_continuous(labels = scales::percent) + 
+  theme_minimal() +
+  geom_hline(yintercept = 0.1168923, linetype = "dotted", color = "gray30", linewidth = 1.1) + 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+plot_age_bin
+```
+
+
+### 1c2 Look into duration and number of calls with clients – what do you observe? Examine how duration and number of calls with clients relates to their response to the marketing campaign. For each of these, describe your findings and any insights.
+
+
+```{r , fig.height=3.5 , fig.align='center' , fig.cap= "Call Duration vs. Number of Contacts", fig.pos='H'}
+plot_duration_vs_campaign <- ggplot(df, aes(x = campaign, y = duration)) + 
+  geom_point(alpha = 0.5) + 
+  labs(title = "Call Duration vs. Number of Contacts", x = "Number of Contacts", y = "Call Duration (seconds)") + 
+  theme_minimal()+ 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+plot_duration_vs_campaign
+```
+
+```{r , fig.height=3.5 , fig.align='center' , fig.cap = "Call Duration vs. Number of Contacts, Colorcoded by Response", fig.pos='H'}
+plot_duration_vs_campaign <- ggplot(df, aes(x = campaign, y = duration, color = y)) + 
+  geom_point(alpha = 0.5) + 
+  labs(title = "Call Duration vs. Number of Contacts", x = "Number of Contacts", y = "Call Duration (seconds)") + 
+  scale_color_manual(values = c("no" = "red", "yes" = "green")) +  # Add custom colors for 'yes' and 'no' responses
+  theme_minimal()
+plot_duration_vs_campaign
+```
+
+
+
+#2 Building Decison Tree Models 
+
+- 2.1 Here, we want to examine how client characteristics can help predict response – so, only include the client variables for developing modes to predict response. Which variables do you include in the model?
+- 2.2 Split the data into training and test sets
+
+## 2.1 Here, we want to examine how client characteristics can help predict response – so, only include the client variables for developing modes to predict response. Which variables do you include in the model?
+```{r}
+library (dplyr)
+df <- df %>% select(-c('contact', 'day', 'month', 'duration', 'campaign', 'pdays', 'previous', 'poutcome'))
+```
+
+## 2.2 Splitting the data into training and test sets:
+
+```{r}
+nr=nrow(df)
+trnIndex = sample(1:nr, size = round(0.7*nr), replace=FALSE)
+dfTrn=df[trnIndex,]   
+dfTst = df[-trnIndex,]
+```
+
+## 2(a) Decision trees using the rpart package
+- 2(a)(i)1  Parameters: Do you find the prior parameter useful? 
+- 2(a)(i)2 Determine the optimal cp value to obtain a best pruned tree. Describe how you go about doing this. 
+- 2(a)(ii) Variable importance: Which variables are important in the decisions by the tree model – discuss the variable importance. 
+- 2(a)(iii) Evaluate the performance of the model on training and test data? What do you conclude regarding overfit?
+- 2(a)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and
+why? What classification threshold do you use and why? What do you conclude ?
+- 2(a)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from
+the ROC analyses, to get best accuracy?
+- 2(a)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+
+### 2(a)(i)1 Parameters: Do you find the prior parameter useful? 
+
+```{r}
+library(rpart)
+set.seed(42)
+#Basic Model (no parameters)
+rpDT1 <- rpart(y ~., data=dfTrn, method="class")
+print(rpDT1)
+#Model with prior parameter
+rpDT2 = rpart(y ~ ., data=dfTrn, method="class", parms=list(prior=c(.5,.5)))
+print(rpDT2)
+```
+
+### 2(a)(i)1 Determine the optimal cp value to obtain a best pruned tree. Describe how you go about doing this. 
+```{r }
+# 1. use cp=0 to get start, which means no pruning and gets the complete tree
+rpDT2 = rpart(y ~ ., data=dfTrn, method="class", control = rpart.control(cp = 0.0), parms=list(prior=c(.5,.5)))
+mincp_i <- which.min(rpDT2$cptable[, 'xerror'])  
+optError <- rpDT2$cptable[mincp_i, "xerror"] + rpDT2$cptable[mincp_i, "xstd"]
+optCP_i <- which.min(abs( rpDT2$cptable[,"xerror"] - optError))
+optCP <- rpDT2$cptable[optCP_i, "CP"]
+print(paste("Optimal CP;",optCP))
+rpDT2_p <- prune(rpDT2, cp = optCP)
+```
+
+## 2(a)(ii) Variable importance: Which variables are important in the decisions by the tree model – discuss the variable importance.  
+
+```{r }
+importance <- rpDT2_p$variable.importance
+
+importance #"Variable Importance of RPart"
+```
+
+### 2(a)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+
+```{r }
+### Performance on Training Data
+#Obtain the model's predictions on the training data
+predTrnrpDT2_p=predict(rpDT2_p, dfTrn, type='class')
+#Confusion Matrix
+predtestrpDT2_p = predict(rpDT2_p, dfTst, type='class')
+#Confusion Matrix
+table(pred = predTrnrpDT2_p, true=dfTrn$y)#"Confusion Matrix of Rpart Model on Training Data"
+#Accuracy
+print(paste("Accuracy of RPart on Train Data:", mean(predTrnrpDT2_p==dfTrn$y)))
+
+### Performance on Test Data
+predtestrpDT2_p = predict(rpDT2_p, dfTst, type='class')
+#Confusion Matrix
+table(predtestrpDT2_p, true=dfTst$y) #"Confusion Matrix of Rpart Model on Test Data"
+#Accuracy
+print(paste("Accuracy of RPart on Test Data:",mean(dfTst$y==predtestrpDT2_p)))
+```
+
+
+
+### 2(a)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from the ROC analyses, to get best accuracy?
+
+```{r , fig.height = 3.5,  fig.cap= "ROC Curve for Train and Test Data - RPart", fig.pos = "H"}
+library('ROCR')
+set.seed(42)
+#Train Data
+score_rpDT2Trn=predict(rpDT2_p, dfTrn, type="prob")[,'yes']  
+rocPred_rpDT2Trn= prediction(score_rpDT2Trn, dfTrn$y, label.ordering = c('no', 'yes'))  
+perfROC_rpDT2Trn=performance(rocPred_rpDT2Trn, "tpr", "fpr")
+
+#Test Data
+score_rpDT2Tst=predict(rpDT2_p, dfTst, type="prob")[,'yes']  
+rocPred_rpDT2Tst = prediction(score_rpDT2Tst, dfTst$y, label.ordering = c('no', 'yes'))  
+perfROC_rpDT2Tst = performance(rocPred_rpDT2Tst, "tpr", "fpr")
+roc_rpDT2_df <- data.frame(
+  fpr = c(unlist(perfROC_rpDT2Trn@x.values), unlist(perfROC_rpDT2Tst@x.values)),
+  tpr = c(unlist(perfROC_rpDT2Trn@y.values), unlist(perfROC_rpDT2Tst@y.values)),
+  dataset = rep(c("Train", "Test"), c(length(perfROC_rpDT2Trn@x.values[[1]]),
+                                      length(perfROC_rpDT2Tst@x.values[[1]])))
+)
+ggplot(roc_rpDT2_df, aes(x = fpr, y = tpr, color = dataset)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  labs(title = "ROC Curve for Train and Test Data", x = "False Positive Rate", y = "True Positive Rate") +
+  scale_color_manual(values = c("Train" = "blue", "Test" = "red")) +
+  theme_minimal()
+```
+```{r }
+#AUC value for Train Data
+aucPerf=performance(rocPred_rpDT2Trn, "auc")
+print(paste("AUC for Train Data", aucPerf@y.values))
+#AUC value for Test Data
+aucPerf=performance(rocPred_rpDT2Tst, "auc")
+print(paste("AUC for Test Data", aucPerf@y.values))
+
+
+#optimal threshold for max overall accuracy for Test Data
+accPerf=performance(rocPred_rpDT2Tst, "acc")
+print(paste("Optimal threshold for max overall accuracy for Test Data", accPerf@x.values[[1]][which.max(accPerf@y.values[[1]])]))
+
+#optimal threshold for max overall accuracy for Train Data
+accPerf=performance(rocPred_rpDT2Trn, "acc")
+print(paste("Optimal threshold for max overall accuracy for Train Data", accPerf@x.values[[1]][which.max(accPerf@y.values[[1]])]))
+```
+
+### 2(a)(iii) 3 develop lift tables to evaluate performance. What conclusions do you make?
+
+```{r }
+#Train Model
+predTrnProb=predict(rpDT2_p, dfTrn, type='prob')
+trnSc <- dfTrn %>%  select("y")
+trnSc$score<-predTrnProb[, 2]
+trnSc<-trnSc[order(trnSc$score, decreasing=TRUE),]
+trnSc$cumResponse<-cumsum(trnSc$y == "yes")
+trnSc["bucket"]<- ntile(-trnSc[,"score"], 10)  
+dLifts <- trnSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count, 
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(trnSc$y=="yes")/nrow(trnSc)) )
+dLifts#"Lift Table of RPart Train Data"
+```
+
+```{r}
+#Test Model
+predTstProb=predict(rpDT2_p, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+dLiftsrp <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count, 
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+dLiftsrp#"Lift Table of RPart Test Data"
+
+```
+
+
+## 2(b) Develop C50 decision tree and rules. 
+ - 2(b)(i)1 Parameters: Do you find the costs parameter useful? Describe how you use this. 
+ - 2(b)(i)2 How many nodes are there in the tree? How many rules? Is this what you expected? 
+ - 2(b)(ii) Variable importance: Which variables are important in the decisions by the tree model and the rules model – discuss the variable importance. 
+ - 2(b)(iii) Evaluate performance of the tree model and rules model on training and test data? What are your conclusions?
+ 
+   For performance assessment of models:
+  - 2(b)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and
+  why? What classification threshold do you use and why? What do you conclude ?
+  - 2(b)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from
+  the ROC analyses, to get best accuracy?
+  - 2(b)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+### 2(b)(i)1 Parameters: Do you find the costs parameter useful? Describe how you use this. 
+
+```{r}
+# Developing Basic C50 Decision Tree Model
+library(C50)
+set.seed(42)
+#Basic Model
+c5DT1 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10))
+print(c5DT1)
+
+#Constructing Cost Matrix 
+costMatrix <- matrix(c(
+    0,   1,
+    10,  0),
+   2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+#C50 Decision Tree with Cost Parameter
+c5DT2 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+print(c5DT2)
+```
+
+### 2(b)(i)2 How many nodes are there in the tree? How many rules? Is this what you expected? 
+
+```{r }
+#Generating C50 Rules based model 
+c5_rules <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), rules=TRUE, costs=costMatrix)
+print(c5_rules)
+```
+
+### 2(b)(ii) Variable importance: Which variables are important in the decisions by the tree model and the rules model – discuss the variable importance. 
+
+```{r }
+#C50 Decision Tree
+C5imp(c5DT2)#"Variable Importance for the Tree Model" 
+
+#Rules Based Tree
+C5imp(c5_rules)#"Variable Importance for Rule Based Model"
+```
+
+### 2(b)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+
+```{r }
+#Performance Testing Tree and Rule Models on Train and Test Data
+
+#Tree Based Model
+## on Training Data
+predTrnc50t <- predict(c5DT2, dfTrn,type = "class")
+#Confusion Matrix
+table( pred = predTrnc50t, true=dfTrn$y)#"Confusion Matrix of Tree Based Model on Training Data"
+#Accuracy
+print(paste("Accuracy of Tree Model on Training Data:",mean(predTrnc50t==dfTrn$y)))
+
+#Tree Based Model
+## on Test Data set
+predTstc50t <- predict(c5DT2, dfTst,type = "class")
+#Confusion Matrix
+table( pred = predTstc50t, true=dfTst$y)#"Confusion Matrix of Tree Based Model on Test Data"
+#Accuracy
+print(paste("Accuracy of Tree Model on Test Data:",mean(predTstc50t==dfTst$y)))
+
+
+#Rules Based Model
+## On training Data
+predTrnc50r <- predict(c5_rules, dfTrn,type = "class")
+#Confusion Matrix
+table(pred = predTrnc50r, true=dfTrn$y)#"Confusion Matrix of Rules Based Model on Training Data"
+#Accuracy
+print(paste("Accuracy of Tree Model on Training Data:",mean(predTrnc50r==dfTrn$y)))
+
+#Rules Based Model
+## On Test Data
+predTstc50r <- predict(c5_rules, dfTst,type = "class")
+
+#Confusion Matrix
+table(pred = predTstc50r, true=dfTst$y)#"Confusion Matrix of Rules Based Model on Test Data"
+#Accuracy
+print(paste("Accuracy of Tree Model on Test Data:",mean(predTstc50r==dfTst$y)))
+
+```
+
+```{r }
+#Testing Different Cost Matrixes
+# test cost matrix 2
+costMatrix <- matrix(c(
+  0,   1,
+  9,  0),
+  2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+costMatrix#"Cost Matrix Using Slightly Modified Weights"
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+c5DT22 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+predTstc50t2 <- predict(c5DT22, dfTst,type = "class")
+
+table( pred = predTstc50t2, true=dfTst$y)#"Confusion Matrix of C5.0 on Training Data - Cost Matrix using Slightly Modified Weights"
+
+print(paste("Accuracy of c5.0 Tree Model Using Slightly Modified Cost Weights:",mean(predTstc50t2==dfTst$y)))
+
+
+#Testing Different Cost Matrices
+# test cost matrix 3
+costMatrix <- matrix(c(
+  0,   11,
+  88,  0),
+  2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+costMatrix#"Cost Matrix Using Light Population weights"
+
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+c5DT23 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+predTstc50t3 <- predict(c5DT23, dfTst,type = "class")
+
+table( pred = predTstc50t3, true=dfTst$y)#"Confusion Matrix of C5.0 on Training Data - Cost Matrix using Light Population Weights"
+
+print(paste("Accuracy of c5.0 Tree Model Using light Population Distribution Cost Weights:",mean(predTstc50t3==dfTst$y)))
+
+#Testing Different Cost Matrixes
+#test model 4
+costMatrix <- matrix(c(
+  0,   1168923,
+  8831077,  0),
+  2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+costMatrix#"Cost Matrix Using Population weights"
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+c5DT24 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+predTstc50t4 <- predict(c5DT24, dfTst,type = "class")
+
+table( pred = predTstc50t4, true=dfTst$y)#"Confusion Matrix of C5.0 on Training Data - Cost Matrix using Population Weights"
+
+print(paste("Accuracy of c5.0 Tree Model Using Population Distribution Cost Weights:",mean(predTstc50t4==dfTst$y)))
+
+```
+
+
+
+### 2(b)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from the ROC analyses, to get best accuracy?
+
+```{r }
+scoreTrn_c50t <- predict(c5DT2, dfTrn, type="class")
+scoreTrn_Rules <- predict(c5_rules, dfTrn, type="class")
+
+scoreTrn_n_c50t <- as.numeric(scoreTrn_c50t)
+scoreTrn_n_Rules <- as.numeric(scoreTrn_Rules)
+
+rocPredTrn_c50t  = prediction(scoreTrn_n_c50t, dfTrn$y, label.ordering = c('no','yes'))
+rocPredTrn_Rules = prediction(scoreTrn_n_Rules, dfTrn$y, label.ordering = c('no','yes'))
+
+perfROCTrn_c50t <- performance(rocPredTrn_c50t, "tpr", "fpr")
+perfROCTrn_Rules <- performance(rocPredTrn_Rules, "tpr", "fpr")
+
+
+auc_c50t <- performance(rocPredTrn_c50t, "auc")@y.values[[1]]
+auc_Rules <- performance(rocPredTrn_Rules, "auc")@y.values[[1]]
+
+#AUC for Tree Model With Train Data
+print(paste("AUC for Rule Model With Train Data:",auc_c50t))
+
+#AUC for Rule Model With Train Data
+print(paste("AUC for Rule Model With Train Data:",auc_Rules))
+```
+
+```{r , fig.height = 3.5,  fig.cap= "Train ROC Curve Comparison Using Train Data", fig.pos= "H"}
+rocData_DT <- data.frame(fpr = unlist(perfROCTrn_c50t@x.values), 
+                         tpr = unlist(perfROCTrn_c50t@y.values), 
+                         model = "Decision Tree")
+rocData_Rules <- data.frame(fpr = unlist(perfROCTrn_Rules@x.values), 
+                            tpr = unlist(perfROCTrn_Rules@y.values), 
+                            model = "Rules-Based")
+
+rocData <- rbind(rocData_DT, rocData_Rules)
+# Plot both ROC curves on the same plot
+ggplot(rocData, aes(x = fpr, y = tpr, color = model)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  ggtitle("Train ROC Curve Comparison: Tree vs Rules-Based") +
+  xlab("False Positive Rate (FPR)") + 
+  ylab("True Positive Rate (TPR)") +
+  theme_minimal() +
+  scale_color_manual(values = c("blue", "red"))
+```
+
+```{r }
+library(ROCR)
+
+scoreTst_c50t <- predict(c5DT2, dfTst, type="class")
+scoreTst_Rules <- predict(c5_rules, dfTst, type="class")
+
+scoreTst_n_c50t <- as.numeric(scoreTst_c50t)
+scoreTst_n_Rules <- as.numeric(scoreTst_Rules)
+
+rocPredTst_c50t  = prediction(scoreTst_n_c50t, dfTst$y, label.ordering = c('no','yes'))
+rocPredTst_Rules = prediction(scoreTst_n_Rules, dfTst$y, label.ordering = c('no','yes'))
+
+perfROCTst_c50t <- performance(rocPredTst_c50t, "tpr", "fpr")
+perfROCTst_Rules <- performance(rocPredTst_Rules, "tpr", "fpr")
+
+auc_c50tPerf <- performance(rocPredTst_c50t, "auc")
+auc_RulesPerf <- performance(rocPredTst_Rules, "auc")
+
+#AUC for Tree Model With Test Data
+print(paste("AUC for Rule Model With Test Data:",auc_c50tPerf@y.values))
+
+#AUC for Rule Model With Test Data
+print(paste("AUC for Rule Model With Test Data:",auc_RulesPerf@y.values))
+```
+
+```{r,fig.height = 3.5,  fig.cap= "Test ROC Curve Comparison", fig.pos="!h"}
+rocData_c50t <- data.frame(fpr = unlist(perfROCTst_c50t@x.values), 
+                         tpr = unlist(perfROCTst_c50t@y.values), 
+                         model = "Decision Tree")
+rocData_Rules <- data.frame(fpr = unlist(perfROCTst_Rules@x.values), 
+                            tpr = unlist(perfROCTst_Rules@y.values), 
+                            model = "Rules-Based")
+rocData <- rbind(rocData_c50t, rocData_Rules)
+
+# Plot both ROC curves on the same plot
+ggplot(rocData, aes(x = fpr, y = tpr, color = model)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  ggtitle("Test ROC Curve Comparison: Tree vs Rules-Based") +
+  xlab("False Positive Rate (FPR)") + 
+  ylab("True Positive Rate (TPR)") +
+  theme_minimal() +
+  scale_color_manual(values = c("blue", "red"))
+```
+
+
+```{r }
+#Threshold optimizing for tree model on test data
+accPerfrocPredTst_c50t=performance(rocPredTst_c50t, "acc")
+print(paste("Threshold optimizing for tree model on test data:", accPerfrocPredTst_c50t@x.values[[1]][which.max(accPerfrocPredTst_c50t@y.values[[1]])]))
+
+#Threshold optimizing for rules model on test data
+accPerfrocPredTst_Rules=performance(rocPredTst_Rules, "acc")
+print(paste("Threshold optimizing for rules model on test data:", accPerfrocPredTst_Rules@x.values[[1]][which.max(accPerfrocPredTst_Rules@y.values[[1]])]))
+
+#Threshold optimizing for tree model on train data
+accPerfrocPredTrn_c50t=performance(rocPredTrn_c50t, "acc")
+print(paste("Threshold optimizing for tree model on train data:", accPerfrocPredTrn_c50t@x.values[[1]][which.max(accPerfrocPredTrn_c50t@y.values[[1]])]))
+
+#Threshold optimizing for rules model on train data
+accPerfrocPredTrn_Rules=performance(rocPredTrn_Rules, "acc")
+print(paste("Threshold optimizing for rules model on train data:", accPerfrocPredTrn_Rules@x.values[[1]][which.max(accPerfrocPredTrn_Rules@y.values[[1]])]))
+
+```
+
+
+## 2(b)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+```{r }
+#Tree Model
+c5DT_noCost <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10))
+
+predTstProb=predict(c5DT_noCost, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLiftsc50t <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)))
+dLiftsc50t$numResponse <- rev(dLiftsc50t$numResponse)
+dLiftsc50t$lift <- rev(dLiftsc50t$lift)
+dLiftsc50t$cumRespRate <- rev(dLiftsc50t$cumRespRate)
+dLiftsc50t$respRate <- rev(dLiftsc50t$respRate)
+
+#look at the table
+dLiftsc50t#"Lift Table of Trees-Based Model"
+
+```
+
+
+```{r }
+#Rules Model
+c5Rules_noCost <- C5.0(y ~ ., data=dfTst, rules = TRUE ,control=C5.0Control(minCases=10))
+
+predTstProb=predict(c5Rules_noCost, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLiftsc5rules <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count, 
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)))
+
+dLiftsc5rules$numResponse <- rev(dLiftsc5rules$numResponse)
+dLiftsc5rules$lift <- rev(dLiftsc5rules$lift)
+dLiftsc5rules$cumRespRate <- rev(dLiftsc5rules$cumRespRate)
+dLiftsc5rules$respRate <- rev(dLiftsc5rules$respRate)
+
+#look at the table
+dLiftsc5rules#"Lift Table of Rules-Based Model"
+
+```
+
+
+
+## 2(c) Develop random forest model. 
+  - 2(c)(i) Parameters: Experiment with the m and number of trees parameters, Do you find performance to vary? What parameters do you use to get your best model ? Explain how do you determine which model is best. 
+  - 2(c)(ii) Variable importance: Which variables are important in the decisions - discuss the variable importance.
+  - 2(c)(iii) Evaluate performance of the random forest model on training and test data? What do you conclude?
+    For performance assessment of models:
+  - 2(c)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+  - 2(c)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from  the ROC analyses, to get best accuracy?
+  - 2(c)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+  
+### 2(c)(i)1 Parameters: Experiment with the m and number of trees parameters, Do you find performance to vary? What parameters do you use to get your best model ? Explain how do you determine which model is best. 
+
+
+```{r }
+library(randomForest)
+set.seed(576)
+results <- data.frame(ntree = integer(), mtry = integer(), accuracy = numeric())
+# Grid search over ntree and mtry
+for (nt in c(100, 200, 500, 1000)) {
+  for (mt in c(1, sqrt(ncol(dfTrn)), ncol(dfTrn)-1)) {
+    rfModel <- randomForest(y ~ ., data=dfTrn, ntree=nt, mtry=mt, importance=TRUE)
+    accuracy <- mean(rfModel$predicted == dfTrn$y)
+    results <- rbind(results, data.frame(ntree = nt, mtry = mt, accuracy = accuracy))
+  }
+}
+#Results of systematic Random Forest Parameter Tuning
+results#"Results of Systematic Parameter Exploration"
+# Choose the model with the highest accuracy
+bestModel <- results[which.max(results$accuracy),]
+print(bestModel)
+```
+
+### 2(c)(ii) Variable importance: Which variables are important in the decisions - discuss the variable importance.
+
+```{r , fig.cap= "Variable Importance Plot", fig.pos= "H"}
+
+rfModel <- randomForest(y ~ ., data=dfTrn, ntree=1000, mtry=3, importance=TRUE)
+varImpPlot(rfModel)
+```
+
+```{r }
+importance(rfModel)#"Variable Importance for Random Forest Model"
+```
+
+
+### 2(c)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+
+```{r }
+#Classification performance
+CTHRESH = 0.5
+
+#For training data
+rfPredTrn<-predict(rfModel,dfTrn, type="prob")
+predTrnrfPred = ifelse(rfPredTrn[, 'yes'] >= CTHRESH, 'yes', 'no')
+table( pred = predTrnrfPred, true=dfTrn$y)#"Confusion Matrix of RF on Training Data - Using threshold of 0.5"
+#accuracy
+print(paste("Accuracy of RF Model on Training Data using threshold of 0.5:", mean(predTrnrfPred==dfTrn$y)))
+
+
+#For test data
+rfPredTst<-predict(rfModel,dfTst, type="prob")
+predTstrfPred = ifelse(rfPredTst[, 'yes'] >= CTHRESH, 'yes', 'no')
+
+#confusion matrix
+table( pred = predTstrfPred, true=dfTst$y)#"Confusion Matrix of RF on Test Data- Using threshold of 0.5"
+#accuracy
+print(paste("Accuracy of RF Model on Test Data using threshold of 0.5:", mean(predTstrfPred==dfTst$y)))
+
+CTHRESH = 0.2
+
+#For training data
+rfPred<-predict(rfModel,dfTrn, type="prob")
+pred = ifelse(rfPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+
+table( pred = pred, true=dfTrn$y)#"Confusion Matrix of RF on Training Data - Using threshold of 0.2"
+#accuracy
+print(paste("Accuracy of RF Model on Training Data using threshold of 0.2:", mean(pred==dfTrn$y)))
+
+#For test data
+rfPred<-predict(rfModel,dfTst, type="prob")
+pred = ifelse(rfPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+
+#confusion matrix
+table( pred = pred, true=dfTst$y)#"Confusion Matrix of RF on Test Data- Using threshold of 0.2"
+#accuracy
+print(paste("Accuracy of RF Model on Test Data using threshold of 0.2:", mean(pred==dfTst$y)))
+
+CTHRESH = 0.1
+
+#For training data
+rfPred<-predict(rfModel,dfTrn, type="prob")
+pred = ifelse(rfPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+table( pred = pred, true=dfTrn$y)#"Confusion Matrix of RF on Training Data - Using threshold of 0.1"
+#accuracy
+print(paste("Accuracy of RF Model on Training Data using threshold of 0.1:", mean(pred==dfTrn$y)))
+
+#For test data
+rfPred<-predict(rfModel,dfTst, type="prob")
+pred = ifelse(rfPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+#confusion matrix
+table( pred = pred, true=dfTst$y)#"Confusion Matrix of RF on Test Data- Using threshold of 0.1"
+#accuracy
+print(paste("Accuracy of RF Model on Test Data using threshold of 0.1:", mean(pred==dfTst$y)))
+```
+
+### 2(c)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from  the ROC analyses, to get best accuracy?
+
+```{r ,fig.height = 3.5,  fig.cap="ROC Curve for Random Forest Model (Training & Test Data)", fig.pos = "H"}
+
+perf_rfTst <- performance(prediction(predict(rfModel, dfTst, type="prob")[, 2], dfTst$y), "tpr", "fpr")
+
+# Calculate the performance for training data
+perf_rfTrn <- performance(prediction(predict(rfModel, dfTrn, type="prob")[, 2], dfTrn$y), "tpr", "fpr")
+
+# Create a data frame for ggplot from test data
+roc_data_tst <- data.frame(
+  FPR = unlist(perf_rfTst@x.values),
+  TPR = unlist(perf_rfTst@y.values),
+  Data = "Test Data"
+)
+
+# Create a data frame for ggplot from training data
+roc_data_trn <- data.frame(
+  FPR = unlist(perf_rfTrn@x.values),
+  TPR = unlist(perf_rfTrn@y.values),
+  Data = "Training Data"
+)
+
+# Combine the data for both training and test data
+roc_data <- rbind(roc_data_tst, roc_data_trn)
+
+# Plot ROC curve for both training and test data using ggplot
+ggplot(roc_data, aes(x = FPR, y = TPR, color = Data)) +
+  geom_line() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  labs(
+    title = "ROC Curve for Random Forest Model (Training & Test Data)",
+    x = "False Positive Rate",
+    y = "True Positive Rate"
+  ) +
+  scale_color_manual(values = c("blue", "green")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+```
+
+```{r }
+#AUC's
+#Test AUC
+print(paste("Test AUC:", performance(prediction(predict(rfModel,dfTst, type="prob")[,2], dfTst$y), "auc")@y.values[[1]]))
+
+#Train AUC
+print(paste("Train AUC:", performance(prediction(predict(rfModel,dfTrn, type="prob")[,2], dfTrn$y), "auc")@y.values[[1]]))
+```
+
+```{r }
+rfPredProbTst <- predict(rfModel, dfTst, type = "prob")[, "yes"]  # Extract probabilities for the "yes" class
+accPerfrocPredTst_rfModel <- performance(prediction(rfPredProbTst, dfTst$y), "acc")
+optimal_threshold_Tst <- accPerfrocPredTst_rfModel@x.values[[1]][which.max(accPerfrocPredTst_rfModel@y.values[[1]])]
+
+# Threshold optimizing for rfModel model on training data
+rfPredProbTrn <- predict(rfModel, dfTrn, type = "prob")[, "yes"]  # Extract probabilities for the "yes" class
+accPerfrocPredTrn_rfModel <- performance(prediction(rfPredProbTrn, dfTrn$y), "acc")
+optimal_threshold_Trn <- accPerfrocPredTrn_rfModel@x.values[[1]][which.max(accPerfrocPredTrn_rfModel@y.values[[1]])]
+
+# Print optimal thresholds
+print(paste("Optimal Threshold for Test Data:", optimal_threshold_Tst))
+print(paste("Optimal Threshold for Training Data:", optimal_threshold_Trn))
+```
+
+
+### 2(c)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+```{r}
+predTstProb=predict(rfModel, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLiftsrf <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,  
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+#look at the table
+
+dLiftsrf#"Lift Table of Random Forest with Test Data"
+```
+
+```{r}
+predTstProb=predict(rfModel, dfTrn, type='prob')
+tstSc <- dfTrn %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the train data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLifts <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,  
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+#look at the table
+
+dLifts#"Lift Table of Random Forest with Train Data"
+```
+
+
+## 2(d) Develop naïve Bayes model. 
+  - 2(d)(i)1 Parameters: look at the continuous variables in the data – do you think kernel density estimation should be used? 
+  - 2(d)(i)2 Does use of kernel density estimation help improve performance?
+  - 2(d)(iii) What is the performance of the naïve-Bayes model on training and test data?
+     For performance assessment of models:
+  - 2(d)(iii)1 show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+  - 2(d)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from  the ROC analyses, to get best accuracy?
+  - 2(d)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+  
+  
+### 2(d)(i)1 Parameters: look at the continuous variables in the data – do you think kernel density estimation should be used? 
+
+```{r ,fig.height = 3.5,  fig.cap= "Histogram of Age", fig.pos= "H"}
+ggplot(dfTrn, aes(x = age)) +
+  geom_histogram(binwidth = 1, fill = "skyblue", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Age", x = "Age", y = "Frequency") +
+  theme_minimal()
+```
+
+```{r ,fig.height = 3.5,  fig.cap= "Histogram of Balance", fig.pos= "H"}
+ggplot(dfTrn, aes(x = balance)) +
+  geom_histogram(binwidth = 100, fill = "lightgreen", color = "black", alpha = 0.7) +
+  labs(title = "Histogram of Balance", x = "Balance", y = "Frequency") +
+  theme_minimal()
+```
+
+
+ 
+### 2(d)(i)2 Does use of kernel density estimation help improve performance?
+
+```{r}
+library(naivebayes)
+#Training basic model
+nbM1<-naive_bayes(y ~ ., data = dfTrn) 
+nbM1PredTst = predict(nbM1, dfTst, type='prob')
+THRESH=0.5
+conf_matrix1 <- table(pred=nbM1PredTst[, 2] > THRESH, actual=dfTst$y)
+accuracy <- sum(diag(conf_matrix1)) / sum(conf_matrix1)
+print(paste("Accuracy without Kernel Density:", accuracy))
+
+#Training model with kernel density estimation
+nbM2<-naive_bayes(y ~ ., data = dfTrn, usekernel = T) 
+nbM2PredTst = predict(nbM2, dfTst, type='prob')
+conf_matrix2 <- table(pred=nbM2PredTst[, 2] > THRESH, actual=dfTst$y)
+accuracy <- sum(diag(conf_matrix2)) / sum(conf_matrix2)
+print(paste("Accuracy with Kernel Density:", accuracy))
+```
+
+### 2(d)(iii) + 2(d)(iii)1 What is the performance of the naïve-Bayes model on training and test data? show confusion matrix and related performance measures - which measures do you look at, and why? What classification threshold do you use and why? What do you conclude ?
+
+```{r}
+#bruteforce approach to finding the best threshold
+nbM2tstPred<-predict(nbM2,dfTst, type="prob")
+CTHRESH_seq <- seq(0, 1, by = 0.01)  # Thresholds from 0 to 1
+f1_scores <- c()
+for (thresh in CTHRESH_seq) {
+  pred <- ifelse(nbM2tstPred[, 'yes'] >= thresh, 'yes', 'no')
+  cm <- table(factor(pred, levels = c("no", "yes")), factor(dfTst$y, levels = c("no", "yes")))
+  TP <- cm["yes", "yes"]
+  FP <- cm["yes", "no"]
+  FN <- cm["no", "yes"]
+  precision <- ifelse(TP + FP == 0, 0, TP / (TP + FP))  # Avoid division by zero
+  recall <- ifelse(TP + FN == 0, 0, TP / (TP + FN))  # Avoid division by zero
+  f1 <- ifelse(precision + recall == 0, 0, 2 * (precision * recall) / (precision + recall))  # Compute F1-score
+  f1_scores <- c(f1_scores, f1)
+}
+best_thresh <- CTHRESH_seq[which.max(f1_scores)]  # Get threshold with max F1-score
+best_thresh
+```
+
+```{r}
+CTHRESH = 0.2
+
+#For training data
+nbM2trnPred<-predict(nbM2,dfTrn, type="prob")
+pred = ifelse(nbM2trnPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+table( pred = pred, true=dfTrn$y)#"Confusion Matrix of NB on Train Data"
+
+print(paste("Accuracy of Confusion Matrix of NB on Training Data:", mean(pred==dfTrn$y)))
+
+
+#For test data
+nbM2tstPred<-predict(nbM2,dfTst, type="prob")
+pred = ifelse(nbM2tstPred[, 'yes'] >= CTHRESH, 'yes', 'no')
+
+table( pred = pred, true=dfTst$y)#"Confusion Matrix of NB on Test Data"
+
+print(paste("Accuracy of Confusion Matrix of NB on Test Data:", mean(pred==dfTst$y)))
+```
+
+
+### 2(d)(iii)2 show ROC based performance – ROC curve, AUC. What is the optimal threshold you obtain from  the ROC analyses, to get best accuracy?
+
+```{r ,fig.height = 3.5,  fig.cap= "ROC Curve for Naive Bayes Model (Training & Test Data)", fig.pos= "H"}
+perf_nbTst <- performance(prediction(predict(nbM2, dfTst, type="prob")[, 2], dfTst$y), "tpr", "fpr")
+
+# Calculate the performance for training data
+perf_nbTrn <- performance(prediction(predict(nbM2, dfTrn, type="prob")[, 2], dfTrn$y), "tpr", "fpr")
+
+# Create a data frame for ggplot from test data
+roc_data_tst <- data.frame(
+  FPR = unlist(perf_nbTst@x.values),
+  TPR = unlist(perf_nbTst@y.values),
+  Data = "Test Data"
+)
+
+# Create a data frame for ggplot from training data
+roc_data_trn <- data.frame(
+  FPR = unlist(perf_nbTrn@x.values),
+  TPR = unlist(perf_nbTrn@y.values),
+  Data = "Training Data"
+)
+# Combine the data for both training and test data
+roc_datanb <- rbind(roc_data_tst, roc_data_trn)
+# Plot ROC curve for both training and test data using ggplot
+ggplot(roc_datanb, aes(x = FPR, y = TPR, color = Data)) +
+  geom_line() +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", color = "red") +
+  labs(
+    title = "ROC Curve for Naive Bayes Model (Training & Test Data)",
+    x = "False Positive Rate",
+    y = "True Positive Rate"
+  ) +
+  scale_color_manual(values = c("blue", "green")) +
+  theme_minimal() +
+  theme(legend.title = element_blank())
+```
+
+```{r }
+#AUC's
+#Test AUC
+print(paste("Test AUC:",performance(prediction(predict(nbM2,dfTst, type="prob")[,2], dfTst$y), "auc")@y.values[[1]]))
+
+#Train AUC
+print(paste("Train AUC:", performance(prediction(predict(nbM2,dfTrn, type="prob")[,2], dfTrn$y), "auc")@y.values[[1]]))
+
+```
+
+```{r }
+#optimal threshold for max overall accuracy
+accPerf <-performance(prediction(predict(nbM2,dfTst, type="prob")[,2], dfTst$y), "acc")
+print(paste("Optimal Threshold for Test Data:", accPerf@x.values[[1]][which.max(accPerf@y.values[[1]])]))
+
+
+#optimal threshold for max overall accuracy
+accPerf <-performance(prediction(predict(nbM2,dfTrn, type="prob")[,2], dfTrn$y), "acc")
+print(paste("Optimal Threshold for Training Data:", accPerf@x.values[[1]][which.max(accPerf@y.values[[1]])]))
+
+```
+
+
+### 2(d)(iii)3 develop lift tables to evaluate performance. What conclusions do you make?
+
+```{r }
+predTstProb=predict(nbM2, dfTst, type='prob')
+tstSc <- dfTst %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLiftsnb <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,  
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+#look at the table
+
+dLiftsnb#"Lift Table of Naive Bayes Model with Test Data"
+
+predTstProb=predict(nbM2, dfTrn, type='prob')
+tstSc <- dfTrn %>%  select("y")
+tstSc$score<-predTstProb[, 2]
+tstSc<-tstSc[order(tstSc$score, decreasing=TRUE),]
+tstSc$cumResponse<-cumsum(tstSc$y == "yes")
+
+#Do the above analyses for the test data
+tstSc["bucket"]<- ntile(-tstSc[,"score"], 10)  
+# this creates a new column with group number for each row
+
+#group the data by the 'buckets', and obtain summary statistics 
+dLifts <- tstSc %>% group_by(bucket) %>% summarize(count=n(), numResponse=sum(y=="yes"), 
+                                                   respRate=numResponse/count,  
+                                                   cumRespRate=cumsum(numResponse)/cumsum(count),
+                                                   lift = cumRespRate/(sum(tstSc$y=="yes")/nrow(tstSc)) )
+#look at the table
+
+dLifts#"Lift Table of Naive Bayes with Train Data"
+```
+
+## 2(e) Compare performance of the different models you have developed.
+
+ -2(e)(i) Show a table with comparative performance. Explain which performance measure you use for this and why. 
+ -2(e)(ii) Plot the ROC curves in a single plot and compare. What do you conclude? 
+ -2(e)(iii) Cumulative lifts can be useful in assessing how a model will perform when implemented to target customers. Discuss how lifts are useful in this context. Compare models on their lift-based performance. Which model would you choose to implement and why. 
+ -2(e)(iv) compare variable importance in the rpart, c50, random forest and "naive bayes" models. Discuss similarities, differences.
+ 
+### 2(e)(i) Show a table with comparative performance. Explain which performance measure you use for this and why. 
+ 
+```{r }
+set.seed(42)
+# Load necessary library
+library(caret)
+
+# Initialize an empty data frame to store results
+model_results <- data.frame(Model = character(), Accuracy = numeric(), F1_Score = numeric(), stringsAsFactors = FALSE)
+
+# Function to compute accuracy and F1-score
+compute_metrics <- function(model, dfTst, model_name) {
+  pred <- predict(model, dfTst, type = "class")  # Use class-based predictions for all models
+  
+  # Compute accuracy
+  accuracy <- mean(pred == dfTst$y)
+  
+  # Compute F1-score
+  conf_matrix <- table(Predicted = pred, Actual = dfTst$y)
+  precision <- conf_matrix["yes", "yes"] / sum(conf_matrix["yes", ])
+  recall <- conf_matrix["yes", "yes"] / sum(conf_matrix[, "yes"])
+  f1_score <- 2 * (precision * recall) / (precision + recall)
+  
+  # Handle cases where precision or recall might be NaN due to division by zero
+  if (is.na(f1_score)) f1_score <- 0
+  
+  return(data.frame(Model = model_name, Accuracy = accuracy, F1_Score = f1_score))
+}
+
+# Compute metrics for each model
+model_results <- rbind(model_results, compute_metrics(rpDT2, dfTst, "rpDT2"))
+model_results <- rbind(model_results, compute_metrics(c5DT2, dfTst, "c5DT2"))
+model_results <- rbind(model_results, compute_metrics(c5_rules, dfTst, "c5_rules"))
+model_results <- rbind(model_results, compute_metrics(rfModel, dfTst, "rfModel"))
+model_results <- rbind(model_results, compute_metrics(nbM2, dfTst, "nbM2"))
+
+model_results#"Accuracy and F1 Score Across Models"
+
+```
+
+### 2(e)(ii) Plot the ROC curves in a single plot and compare. What do you conclude? 
+
+```{r ,fig.height = 3.5,  fig.cap="ROC Curve Comparison Across Models", fig.pos = "H"}
+
+rocData_rf <- data.frame(fpr = unlist(perf_rfTst@x.values), 
+                         tpr = unlist(perf_rfTst@y.values), 
+                         model = "Random Forest")
+
+rocData_nb <- data.frame(fpr = unlist(perf_nbTst@x.values), 
+                         tpr = unlist(perf_nbTst@y.values), 
+                         model = "Naive Bayes")
+
+rocData_rpDT2 <- data.frame(fpr = unlist(perfROC_rpDT2Tst@x.values), 
+                            tpr = unlist(perfROC_rpDT2Tst@y.values), 
+                            model = "Decision Tree (rpart)")
+rocData_c50t <- data.frame(fpr = unlist(perfROCTst_c50t@x.values), 
+                         tpr = unlist(perfROCTst_c50t@y.values), 
+                         model = "Decision Tree")
+rocData_Rules <- data.frame(fpr = unlist(perfROCTst_Rules@x.values), 
+                            tpr = unlist(perfROCTst_Rules@y.values), 
+                            model = "Rules-Based")
+rocData_all <- rbind(rocData_rf, rocData_nb, rocData_rpDT2, rocData_c50t, rocData_Rules)
+
+ggplot(rocData_all, aes(x = fpr, y = tpr, color = model)) +
+  geom_line(size = 1) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", color = "gray") +
+  ggtitle("ROC Curve Comparison Across Models") +
+  xlab("False Positive Rate (FPR)") + 
+  ylab("True Positive Rate (TPR)") +
+  theme_minimal() +
+  scale_color_manual(values = c("blue", "red", "green", "purple", "orange"))  
+
+```
+
+\pagebreak
+### 2(e)(iii) Cumulative lifts can be useful in assessing how a model will perform when implemented to target customers. Discuss how lifts are useful in this context. Compare models on their lift-based performance. Which model would you choose to implement and why. 
+```{r }
+lift_table <- data.frame(
+  Bucket = dLiftsrp$bucket,  # Assuming all have the same bucket structure
+  rpDT2 = dLiftsrp$lift,
+  c5DT2 = dLiftsc50t$lift,
+  c5_rules = dLiftsc5rules$lift,
+  rfModel = dLiftsrf$lift,
+  nbM2 = dLiftsnb$lift
+)
+
+# Print lift comparison table
+lift_table#"Consolidated Lifts Across Models"
+
+```
+
+
+### 2(e)(iv) compare variable importance in the rpart, c50,and random forest models. Discuss similarities, differences.
+
+Overall the different importance rankings, age and balance are substantially first in many of the models. Job is a solid third in importance amongst the models. Default and Loan are consistantly the least important variables. Marital status and education level are regularly in the middle of the rankings. 
+Despite these similarities there are some differences among the models. In the rule based model, both age and job drop in importance ranking and land in the middle fo the rankings. There are also variations in where the top three land amongst themselves. For example, every model except for the tree-based model, balance is the top ranked feature according to Gini. However, in the tree-based model (Table 48), balance drops to the third important feature. 
+
+```{r }
+importance <- rpDT2_p$variable.importance
+importance#"Variable Importance for the RPart Model for Comparison"
+
+costMatrix <- matrix(c(
+  0,   1168923,
+  8831077,  0),
+  2, 2, byrow=TRUE)
+rownames(costMatrix) <- colnames(costMatrix) <- c("yes", "no")
+
+c5DT2 <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), costs=costMatrix)
+c5_rules <- C5.0(y ~ ., data=dfTrn, control=C5.0Control(minCases=10), rules=TRUE, costs=costMatrix)
+
+C5imp(c5DT2)#"Variable Importance for the C5.0 Model for Comparison"
+C5imp(c5_rules)#"Variable Importance for Rule Based Model for Comparison"
+
+importance(rfModel)#"Variable Importance for Random Forest Model for Comparison"
+```
+
