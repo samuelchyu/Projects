@@ -9,6 +9,7 @@ enabling better decision-making through intuitive charts, graphs, and dashboards
 visualization techniques to uncover trends, anomalies, and correlations within datasets.
 
 Features:
+
 Data preprocessing and cleaning for optimal visualization
 Custom visualizations tailored for different business needs
 Implementation of machine learning-driven insights into visual representations
@@ -27,11 +28,13 @@ More dynamic and customizable visual components
 ______________________________________________________________________________________________________________________________
 Banking Campaign Analysis:
 
-Overview
+Overview:
+
 The Banking Campaign project analyzes the effectiveness of marketing campaigns in the banking sector. 
 The objective is to evaluate customer responses to various campaign strategies and optimize targeting for future campaigns.
 
-Features
+Features:
+
 Data preprocessing and feature engineering
 Predictive modeling to determine customer response likelihood
 Performance evaluation of marketing campaign models
